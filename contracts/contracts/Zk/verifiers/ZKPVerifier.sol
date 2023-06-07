@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "../lib/GenesisUtils.sol";
 import "../lib/Poseidon.sol";
 import "../interfaces/ICircuitValidator.sol";
@@ -29,6 +30,9 @@ abstract contract ZKPVerifier is IZKPVerifier, Ownable {
         uint256 operator,
         uint256[] calldata value
     ) public override onlyOwner returns (bool) {
+        require(schema != 0, "invalid schema");
+        require(Address.isContract(address(validator)), "invalid validator");
+
         uint256 valueHash = PoseidonFacade.poseidonSponge(value);
         // only merklized claims are supported (claimPathNotExists is false, slot index is set to 0 )
         uint256 queryHash = PoseidonFacade.poseidon6(
@@ -59,6 +63,7 @@ abstract contract ZKPVerifier is IZKPVerifier, Ownable {
         if (requestValidators[requestId] == ICircuitValidator(address(0x00))) {
             supportedRequests.push(requestId);
         }
+        
         requestQueries[requestId].queryHash = queryHash;
         requestQueries[requestId].operator = operator;
         requestQueries[requestId].circuitId = validator.getCircuitId();

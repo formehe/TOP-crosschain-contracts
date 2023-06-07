@@ -454,6 +454,9 @@ describe("ZKEntry", function () {
           PoseidonFacade: poseidon.address
         }
       })
+      
+      await expect(zkPVerifierCon.deploy(shadowWalletFactory.address, AddressZero)).to.be.revertedWith("invalid state")
+      await expect(zkPVerifierCon.deploy(AddressZero, stateV2.address)).to.be.revertedWith("invalid factory")
       zkPVerifier = await zkPVerifierCon.deploy(shadowWalletFactory.address, stateV2.address)
       await zkPVerifier.deployed()
       console.log("+++++++++++++zkPVerifier+++++++++++++++ ", zkPVerifier.address)
@@ -484,6 +487,24 @@ describe("ZKEntry", function () {
 
   it('ZKEntry', async () => {
     const circuitId = "credentialAtomicQuerySig";
+    await expect(zkPVerifier.setZKPRequest(
+      1,
+      sigValidator.address,
+      ethers.BigNumber.from("000000000000000000000000000000000000000"),
+      2,
+      2,
+      [20010101, ...new Array(63).fill(0).map((i) => 0)]
+    )).to.be.revertedWith("invalid schema")
+
+    await expect(zkPVerifier.setZKPRequest(
+      1,
+      AddressZero,
+      ethers.BigNumber.from("000000000000000000000000000000000000000"),
+      2,
+      2,
+      [20010101, ...new Array(63).fill(0).map((i) => 0)]
+    )).to.be.revertedWith("invalid schema")
+
     let tx = await zkPVerifier.setZKPRequest(
       1,
       sigValidator.address,
@@ -494,9 +515,39 @@ describe("ZKEntry", function () {
     )
 
     const {pub_signals, proof} =  await generateProofs(rpcUrl, stateV2.address)
+    console.log(proof)
     console.log(pub_signals)
-    const pubSignals = new AtomicQuerySigV2PubSignals().pubSignalsUnmarshal(byteEncoder.encode(JSON.stringify(pub_signals)))
     const transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
+    let temp = pub_signals[17]
+    pub_signals[17]=7
+    await expect(zkPVerifier.submitZKPResponse(
+      1,
+      pub_signals.map((p)=>p.toString()), 
+      proof.pi_a.slice(0, 2), 
+      [
+        [proof.pi_b[0][1].toString(), proof.pi_b[0][0].toString()],
+        [proof.pi_b[1][1].toString(), proof.pi_b[1][0].toString()]
+      ],
+      proof.pi_c.slice(0, 2),
+      erc20Token.address,
+      transferCalldata
+    )).to.be.revertedWith("Proof is not valid")
+
+    pub_signals[17]=temp
+
+    await expect(zkPVerifier.submitZKPResponse(
+      2,
+      pub_signals.map((p)=>p.toString()), 
+      proof.pi_a.slice(0, 2), 
+      [
+        [proof.pi_b[0][1].toString(), proof.pi_b[0][0].toString()],
+        [proof.pi_b[1][1].toString(), proof.pi_b[1][0].toString()]
+      ],
+      proof.pi_c.slice(0, 2),
+      erc20Token.address,
+      transferCalldata
+    )).to.be.revertedWith("validator is not set for this request id")
+
     await zkPVerifier.submitZKPResponse(
       1,
       pub_signals.map((p)=>p.toString()), 
@@ -509,13 +560,6 @@ describe("ZKEntry", function () {
       erc20Token.address,
       transferCalldata
     )
-
-    console.log(proof.pi_a.slice(0, 2))
-    console.log(proof.pi_a.slice(0, 2))
-    console.log(proof.pi_b[0][1].toString())
-    console.log(proof.pi_b[0][0].toString())
-    console.log(proof.pi_b[1][1].toString())
-    console.log(proof.pi_b[1][0].toString())
 
     tx = await zkPVerifier.idMappings(pub_signals[1].toString())
     console.log(tx)
@@ -532,6 +576,7 @@ describe("ZKEntry", function () {
       erc20Token.address,
       transferCalldata
     )
+
     await expect(zkPVerifier.submitZKPResponse(
       1,
       pub_signals.map((p)=>p.toString()), 
