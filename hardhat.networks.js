@@ -42,8 +42,8 @@ const networks = {
     // url: 'http://192.168.30.32:8545',
     allowUnlimitedContractSize: true,
     gasPrice: 'auto',
-    gas: 30_000_000,
-    blockGasLimit: 300_000_000,
+    gas: 30_000_000_000,
+    blockGasLimit: 30_000_000_000,
     accounts: {
       mnemonic: "test test test test test test test test test test test junk"
     },
@@ -66,7 +66,9 @@ if(process.env.ALCHEMY_URL && process.env.FORK_ENABLED){
       mnemonic: "test test test test test test test test test test test junk"
     },
     hardfork: 'london',
-    gasPrice: 'auto'
+    gasPrice: 'auto',
+    gas: 30_000_000_000_000,
+    blockGasLimit: 30_000_000_000_000
   }
   if (process.env.FORK_BLOCK_NUMBER) {
     networks.hardhat.forking.blockNumber = parseInt(process.env.FORK_BLOCK_NUMBER)
@@ -76,7 +78,9 @@ if(process.env.ALCHEMY_URL && process.env.FORK_ENABLED){
     allowUnlimitedContractSize: true,
     accounts: {
       mnemonic: "test test test test test test test test test test test junk"
-    }
+    },
+    gas: 30_000_000_000_000,
+    blockGasLimit: 30_00_000_000_000
   }
 }
 
