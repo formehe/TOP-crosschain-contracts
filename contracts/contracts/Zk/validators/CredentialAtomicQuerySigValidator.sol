@@ -5,7 +5,7 @@ import "./CredentialAtomicQueryValidator.sol";
 
 contract CredentialAtomicQuerySigValidator is CredentialAtomicQueryValidator {
     string constant CIRCUIT_ID = "credentialAtomicQuerySig";
-    uint256 constant CHALLENGE_INDEX = 2**256 - 1;
+    uint256 constant CHALLENGE_INDEX = 1;
 
     function getCircuitId() external pure override returns (string memory id) {
         return CIRCUIT_ID;
@@ -32,7 +32,7 @@ contract CredentialAtomicQuerySigValidator is CredentialAtomicQueryValidator {
     function _checkInput(
         uint256[] calldata inputs,
         uint256 /*queryHash*/
-    )internal view override {
+    ) internal view override {
         //destrcut values from result array
         uint256[] memory validationParams = _getInputValidationParameters(inputs);
         uint256 issuerId = validationParams[2];

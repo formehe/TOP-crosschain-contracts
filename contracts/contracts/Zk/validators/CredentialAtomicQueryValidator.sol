@@ -44,7 +44,7 @@ abstract contract CredentialAtomicQueryValidator is OwnableUpgradeable, ICircuit
     function _checkInput(
         uint256[] calldata inputs,
         uint256 queryHash
-    )internal view virtual {
+    ) internal view virtual {
     }
 
     function _getInputValidationParameters(

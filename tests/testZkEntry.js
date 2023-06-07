@@ -415,16 +415,6 @@ describe("ZKEntry", function () {
       await poseidon.deployed()
       console.log("+++++++++++++poseidon+++++++++++++++ ", poseidon.address)
 
-      zkPVerifierCon = await ethers.getContractFactory("ZkEntry", {
-        signer: deployer,
-        libraries: {
-          PoseidonFacade: poseidon.address
-        }
-      })
-      zkPVerifier = await zkPVerifierCon.deploy(shadowWalletFactory.address)
-      await zkPVerifier.deployed()
-      console.log("+++++++++++++zkPVerifier+++++++++++++++ ", zkPVerifier.address)
-
       stateLibCon = await ethers.getContractFactory("StateLib", {
         signer: deployer,
         // libraries: {
@@ -457,6 +447,16 @@ describe("ZKEntry", function () {
       stateV2 = await stateV2Con.deploy()
       await stateV2.deployed()
       console.log("+++++++++++++stateV2+++++++++++++++ ", stateV2.address)
+
+      zkPVerifierCon = await ethers.getContractFactory("ZkEntry", {
+        signer: deployer,
+        libraries: {
+          PoseidonFacade: poseidon.address
+        }
+      })
+      zkPVerifier = await zkPVerifierCon.deploy(shadowWalletFactory.address, stateV2.address)
+      await zkPVerifier.deployed()
+      console.log("+++++++++++++zkPVerifier+++++++++++++++ ", zkPVerifier.address)
 
       verifierV2Con = await ethers.getContractFactory("VerifierV2", deployer)
       verifierV2 = await verifierV2Con.deploy()
@@ -497,7 +497,6 @@ describe("ZKEntry", function () {
     console.log(pub_signals)
     const pubSignals = new AtomicQuerySigV2PubSignals().pubSignalsUnmarshal(byteEncoder.encode(JSON.stringify(pub_signals)))
     const transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
-    
     await zkPVerifier.submitZKPResponse(
       1,
       pub_signals.map((p)=>p.toString()), 

@@ -10,8 +10,11 @@ import "../factory/IShadowFactory.sol";
 // import "hardhat/console.sol";
 
 abstract contract ZKPVerifier is IZKPVerifier, Ownable {
-    // msg.sender-> ( requestID -> is proof given )
-    // mapping(address => mapping(uint64 => bool)) public proofs;
+    event Transfer_Requested (
+        uint64 requestId,
+        address validator,
+        uint256 schema
+    );
 
     mapping(uint64 => ICircuitValidator.CircuitQuery) public requestQueries;
     mapping(uint64 => ICircuitValidator) public requestValidators;
@@ -63,6 +66,7 @@ abstract contract ZKPVerifier is IZKPVerifier, Ownable {
         requestQueries[requestId].schema = schema;
         requestQueries[requestId].value = value;
         requestValidators[requestId] = validator;
+        emit Transfer_Requested(requestId, address(validator), schema);
         return true;
     }
 
