@@ -9,7 +9,7 @@ import "./wallet/IShadowWallet.sol";
 import "hardhat/console.sol";
 
 contract ZkEntry is ZKPVerifier{
-    event Wallet_Created(
+    event Contract_Wallet_Created(
         uint256 id,
         address wallet
     );
@@ -37,27 +37,27 @@ contract ZkEntry is ZKPVerifier{
         factory = _factory;
     }
 
-    function transitState(
-        uint256 id,
-        uint256 oldState,
-        uint256 newState,
-        bool isOldStateGenesis,
-        uint256[2] calldata a,
-        uint256[2][2] calldata b,
-        uint256[2] calldata c
-    ) external {
-        bytes memory payload = abi.encodeWithSignature("transitState(uint256,uint256,uint256,bool,uint256[2],uint256[2][2],uint256[2])", 
-            id, oldState, newState, isOldStateGenesis, a, b, c);
-        (bool success,) = state.call(payload);
-        require(success, "fail totransitstate");
-        address wallet = idMappings[id];
-        if (wallet == address(0)) {
-            wallet = factory.clone();
-            idMappings[id] = wallet;
-            IShadowWallet(wallet).initialize(address(this));
-            emit Wallet_Created(id, address(wallet));
-        }
-    }
+    // function transitState(
+    //     uint256 id,
+    //     uint256 oldState,
+    //     uint256 newState,
+    //     bool isOldStateGenesis,
+    //     uint256[2] calldata a,
+    //     uint256[2][2] calldata b,
+    //     uint256[2] calldata c
+    // ) external {
+    //     bytes memory payload = abi.encodeWithSignature("transitState(uint256,uint256,uint256,bool,uint256[2],uint256[2][2],uint256[2])", 
+    //         id, oldState, newState, isOldStateGenesis, a, b, c);
+    //     (bool success,) = state.call(payload);
+    //     require(success, "fail to transitstate");
+    //     address wallet = idMappings[id];
+    //     if (wallet == address(0)) {
+    //         wallet = factory.clone();
+    //         idMappings[id] = wallet;
+    //         IShadowWallet(wallet).initialize(address(this));
+    //         emit Wallet_Created(id, address(wallet));
+    //     }
+    // }
 
     function _beforeProofSubmit(
         uint64, /* requestId */
@@ -82,7 +82,7 @@ contract ZkEntry is ZKPVerifier{
             wallet = factory.clone();
             idMappings[userId] = wallet;
             IShadowWallet(wallet).initialize(address(this));
-            emit Wallet_Created(userId, address(wallet));
+            emit Contract_Wallet_Created(userId, address(wallet));
         } else {
             IShadowWallet(wallet).forwardCall(proxied, method);
             usedProofs[id] = true;

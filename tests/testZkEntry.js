@@ -189,29 +189,29 @@ async function generateProofs(rpcUrl, contractAddress) {
   const dataStorage = initDataStorage(rpcUrl, contractAddress)
   let credentialWallet = await initCredentialWallet(dataStorage)
   credentialWallet.getRevocationStatus = async function(credStatus, issuerDID, issuerData) {
-    //   const did = js_iden3_core_1.DID.parse(cred.issuer);
-    const cTR = await dataStorage.mt.getMerkleTreeByIdentifierAndType(issuerDID.toString(), mt_1.MerkleTreeType.Claims);
-    const rTR = await dataStorage.mt.getMerkleTreeByIdentifierAndType(issuerDID.toString(), mt_1.MerkleTreeType.Revocations);
-    const roTR = await dataStorage.mt.getMerkleTreeByIdentifierAndType(issuerDID.toString(), mt_1.MerkleTreeType.Roots);
-    const s = await (0, js_merkletree_1.hashElems)([
-        (await cTR.root()).bigInt(),
-        (await rTR.root()).bigInt(),
-        (await roTR.root()).bigInt()
-    ]);
-    const r = {
-      mtp: {
-        existence: false,
-        nodeAux: undefined,
-        siblings: []
-      },
-      issuer: {
-        state: s.hex(),
-        claimsTreeRoot: (await cTR.root()).hex(),
-        revocationTreeRoot: (await rTR.root()).hex(),
-        rootOfRoots: (await roTR.root()).hex()
-      }
-    };
-    return r;
+      //   const did = js_iden3_core_1.DID.parse(cred.issuer);
+      const cTR = await dataStorage.mt.getMerkleTreeByIdentifierAndType(issuerDID.toString(), mt_1.MerkleTreeType.Claims);
+      const rTR = await dataStorage.mt.getMerkleTreeByIdentifierAndType(issuerDID.toString(), mt_1.MerkleTreeType.Revocations);
+      const roTR = await dataStorage.mt.getMerkleTreeByIdentifierAndType(issuerDID.toString(), mt_1.MerkleTreeType.Roots);
+      const s = await (0, js_merkletree_1.hashElems)([
+          (await cTR.root()).bigInt(),
+          (await rTR.root()).bigInt(),
+          (await roTR.root()).bigInt()
+      ]);
+      const r = {
+        mtp: {
+          existence: false,
+          nodeAux: undefined,
+          siblings: []
+        },
+        issuer: {
+          state: s.hex(),
+          claimsTreeRoot: (await cTR.root()).hex(),
+          revocationTreeRoot: (await rTR.root()).hex(),
+          rootOfRoots: (await roTR.root()).hex()
+        }
+      };
+      return r;
   };
   const identityWallet = await initIdentityWallet(dataStorage, credentialWallet)
   const circuitStorage = await initCircuitStorage()
