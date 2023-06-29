@@ -62,7 +62,7 @@ contract VerifierEcdsa {
 
     uint16 constant pLastMem = 896;
 
-    function verifyProof(uint[2] memory _pA, uint[2][2] memory _pB, uint[2] memory _pC, uint[3] memory _pubSignals) public view returns (bool) {
+    function verifyProof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[3] memory _pubSignals) public view returns (bool) {
         assembly {
             function checkField(v) {
                 if iszero(lt(v, q)) {
@@ -106,11 +106,11 @@ contract VerifierEcdsa {
 
                 // Compute the linear combination vk_x
                 
-                g1_mulAccC(_pVk, IC1x, IC1y, calldataload(add(pubSignals, 0)))
+                g1_mulAccC(_pVk, IC1x, IC1y, mload(add(pubSignals, 0)))
                 
-                g1_mulAccC(_pVk, IC2x, IC2y, calldataload(add(pubSignals, 32)))
+                g1_mulAccC(_pVk, IC2x, IC2y, mload(add(pubSignals, 32)))
                 
-                g1_mulAccC(_pVk, IC3x, IC3y, calldataload(add(pubSignals, 64)))
+                g1_mulAccC(_pVk, IC3x, IC3y, mload(add(pubSignals, 64)))
                 
 
                 // -A
@@ -165,13 +165,13 @@ contract VerifierEcdsa {
 
             // Validate that all evaluations ∈ F
             
-            checkField(calldataload(add(_pubSignals, 0)))
+            checkField(mload(add(_pubSignals, 0)))
             
-            checkField(calldataload(add(_pubSignals, 32)))
+            checkField(mload(add(_pubSignals, 32)))
             
-            checkField(calldataload(add(_pubSignals, 64)))
+            checkField(mload(add(_pubSignals, 64)))
             
-            checkField(calldataload(add(_pubSignals, 96)))
+            checkField(mload(add(_pubSignals, 96)))
             
 
             // Validate all evaluations

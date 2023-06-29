@@ -23,19 +23,17 @@ pragma solidity ^0.8.0;
 import "./verifierEcdsa.sol";
 import "../interfaces/IVerifier.sol";
 contract VerifierEcdsaWrapper is VerifierEcdsa, IVerifier {
-    /// @return r  bool true if proof is valid
     function verifyProof(
-        uint256[2] memory a,
-        uint256[2][2] memory b,
-        uint256[2] memory c,
-        uint256[] memory input
+        uint256[2] calldata a,
+        uint256[2][2] calldata b,
+        uint256[2] calldata c,
+        uint256[] calldata input
     ) public view override returns (bool r) {
         require(input.length == 3, "invalid parameter");
         uint256[3] memory proof;
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < input.length; i++) {
             proof[i] = input[i];
         }
-        
-        return verifyProof(a, b, c, proof);
+        return super.verifyProof(a, b, c, proof);
     }
 }

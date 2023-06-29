@@ -4,3 +4,4 @@ artifacts
 contracts/contracts/test1
 build
 .history
+*.ptau

@@ -1,19 +1,19 @@
 const snarkJs = require("snarkjs");
-const {buildEddsa,buildBabyjub} = require("circomlibjs");
+const {buildEddsa,buildBabyjub, buildPoseidon} = require("circomlibjs");
+const {utils} = require("ffjavascript");
+const {unstringifyBigInts} = utils;
 const {
   hashPersonalMessage,
 } = require("@ethereumjs/util");
 const fs = require("fs");
-
-const privKey = BigInt(
-  "0xf5b552f608f5b552f608f5b552f6082ff5b552f608f5b552f608f5b552f6082f"
-);
+const path = require("path")
 
 const ZKEY_PATH =
   "../curcuit/ecdsaposeidon/circuit_final.zkey";
 const VKEY_PATH = "../curcuit/ecdsaposeidon/verification_key.json";
 const verify = async (proof, publicSignals) => {
-  const vKey = JSON.parse(fs.readFileSync(VKEY_PATH));
+  const vkeyPath = path.join(__dirname, VKEY_PATH)
+  const vKey = JSON.parse(fs.readFileSync(vkeyPath));
   const result = await snarkJs.groth16.verify(
     vKey,
     publicSignals,
@@ -28,32 +28,31 @@ const verify = async (proof, publicSignals) => {
   }
 };
 
-const prove = async () => {
-  if (!fs.existsSync(ZKEY_PATH)) {
+async function generateProof(msgHash, privKey) {
+  const zkeyPath = path.join(__dirname, ZKEY_PATH)
+  if (!fs.existsSync(zkeyPath)) {
     console.log(
-      "zkey not found. Please run `yarn build:ecdsa_verify_pubkey_to_addr` first"
+      "zkey not found."
     );
-    return;
+    return {};
   }
 
   console.time("Full proof generation");
 
-  const msgHash = hashPersonalMessage(Buffer.from("hello world"))
-  const msgHash1 = hashPersonalMessage(Buffer.from("hell0 world"))
+//   const msgHash = hashPersonalMessage(Buffer.from("hello world"))
+//   const msgHash1 = hashPersonalMessage(Buffer.from("hell0 world"))
   const ecdsa = await buildEddsa()
   const babyJub = await buildBabyjub();
   const { F } = babyJub;
+  
   console.log("====priKey====")
   console.log(privKey.toString(16))
-  const msg = F.e(msgHash);
   const pubKey = ecdsa.prv2pub(privKey.toString(16))
-  const signature = ecdsa.signPoseidon(privKey.toString(16), msg)
+
   console.log("====msg====")
-  console.log(msg)
-  console.log("====pubkey====")
-  console.log(F.toObject(pubKey[0]))
-  console.log("====signature====")
-  console.log(signature)
+  const poseidon = await buildPoseidon()
+  const msgPoseidon = poseidon([msgHash])
+  const signature = ecdsa.signPoseidon(privKey.toString(16), msgPoseidon)
 
   const input = {
     enabled: 1,
@@ -62,29 +61,19 @@ const prove = async () => {
     R8x: F.toObject(signature.R8[0]),
     R8y: F.toObject(signature.R8[1]),
     S:  signature.S,
-    M:   F.toObject(msg)
+    M:  F.toObject(msgPoseidon)
   };
 
   console.log("Proving...");
+  const wasmPath = path.join(__dirname, "../curcuit/ecdsaposeidon/curcuit.wasm")
   const { publicSignals, proof } = await snarkJs.groth16.fullProve(
       input,
-      "../curcuit/ecdsaposeidon/curcuit.wasm",
-      ZKEY_PATH
+      wasmPath,
+      zkeyPath
   );
-
-  console.log("=============");
-  console.log(proof);
-  console.log(publicSignals);
-  const t = publicSignals[2]
-  publicSignals[2]=F.toObject(F.e(msgHash1))
-  try{
-    await verify(proof, publicSignals);
-  } catch(e) {
-    console.log(e)
-  }
-  publicSignals[2] = t
-  await verify(proof, publicSignals);
-  process.exit(0)
+  return { publicSignals, proof }
 };
 
-prove();
+module.exports = {
+    generateProof
+}
