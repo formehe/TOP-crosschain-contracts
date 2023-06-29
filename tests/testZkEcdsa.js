@@ -1,15 +1,11 @@
 const chai = require("chai");
 const expect = chai.expect;
 const abi = require('web3-eth-abi');
-var utils_1 = require('ethers').utils;
 const { AddressZero } = require("ethers").constants
-const { BigNumber } = require('ethers')
 const hre = require("hardhat");
 const { ethers, upgrades } = require("hardhat");
 const { generateProof } = require("./helpers/zkEcdsaPoseidon")
-var base64 = require("rfc4648").base64url;
 const { keccak256 } = require('@ethersproject/keccak256')
-const {  utils }   = require("ffjavascript")
 const { poseidonContract } = require("circomlibjs")
 
 describe("ZKEntry", function () {

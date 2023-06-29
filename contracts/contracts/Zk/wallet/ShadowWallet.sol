@@ -47,7 +47,7 @@ contract ShadowWallet is IShadowWallet, Initializable {
         uint256[2] calldata c,
         bytes calldata action
     ) external override returns (bytes memory){
-        require(msg.sender == caller, "can not call");
+        require(msg.sender == caller, "not permit to call");
         ICircuitValidator validator = ICircuitValidator(factory.getValidator());
         require(validator.verify(id, inputs, a, b, c, action), "proof is not valid");
         require((validator.getChallengeId(inputs, action) == nonce) && (nonce != 0), "nonce uncorrect");
@@ -70,7 +70,7 @@ contract ShadowWallet is IShadowWallet, Initializable {
         uint256[2] calldata newC,
         bytes calldata action
     ) external override {
-        require(msg.sender == caller, "can not call");
+        require(msg.sender == caller, "not permit to call");
         ICircuitValidator validator = ICircuitValidator(factory.getValidator());
         require(validator.verify(id, oldInputs, oldA, oldB, oldC, action), "proof is not valid");
         require(validator.verify(id, newInputs, newA, newB, newC, action), "proof is not valid");

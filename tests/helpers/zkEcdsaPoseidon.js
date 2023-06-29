@@ -1,16 +1,12 @@
 const snarkJs = require("snarkjs");
-const {buildEddsa,buildBabyjub, buildPoseidon} = require("circomlibjs");
-const {utils} = require("ffjavascript");
-const {unstringifyBigInts} = utils;
-const {
-  hashPersonalMessage,
-} = require("@ethereumjs/util");
+const {buildEddsa, buildBabyjub, buildPoseidon} = require("circomlibjs");
 const fs = require("fs");
 const path = require("path")
 
 const ZKEY_PATH =
   "../curcuit/ecdsaposeidon/circuit_final.zkey";
 const VKEY_PATH = "../curcuit/ecdsaposeidon/verification_key.json";
+
 const verify = async (proof, publicSignals) => {
   const vkeyPath = path.join(__dirname, VKEY_PATH)
   const vKey = JSON.parse(fs.readFileSync(vkeyPath));
@@ -39,8 +35,6 @@ async function generateProof(msgHash, privKey) {
 
   console.time("Full proof generation");
 
-//   const msgHash = hashPersonalMessage(Buffer.from("hello world"))
-//   const msgHash1 = hashPersonalMessage(Buffer.from("hell0 world"))
   const ecdsa = await buildEddsa()
   const babyJub = await buildBabyjub();
   const { F } = babyJub;
