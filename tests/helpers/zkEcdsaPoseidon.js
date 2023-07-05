@@ -39,11 +39,8 @@ async function generateProof(msgHash, privKey) {
   const babyJub = await buildBabyjub();
   const { F } = babyJub;
   
-  console.log("====priKey====")
-  console.log(privKey.toString(16))
   const pubKey = ecdsa.prv2pub(privKey.toString(16))
 
-  console.log("====msg====")
   const poseidon = await buildPoseidon()
   const msgPoseidon = poseidon([msgHash])
   const signature = ecdsa.signPoseidon(privKey.toString(16), msgPoseidon)
