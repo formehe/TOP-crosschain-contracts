@@ -23,10 +23,10 @@ describe("ZkEntry", function () {
     console.log("user3 account:", user3.address)
     console.log("redeemaccount account:", redeemaccount.address)
 
-    oriEcdsaCon = await ethers.getContractFactory("VerifierEcdsa", deployer)
-    oriEcdsa = await oriEcdsaCon.deploy()
-    await oriEcdsa.deployed()
-    console.log("+++++++++++++VerifierEcdsa+++++++++++++++ ", oriEcdsa.address)
+    // oriEcdsaCon = await ethers.getContractFactory("VerifierEcdsa", deployer)
+    // oriEcdsa = await oriEcdsaCon.deploy()
+    // await oriEcdsa.deployed()
+    // console.log("+++++++++++++VerifierEcdsa+++++++++++++++ ", oriEcdsa.address)
 
     verifierEcdsaCon = await ethers.getContractFactory("VerifierEcdsaWrapper", deployer)
     verifierEcdsa = await verifierEcdsaCon.deploy()
@@ -89,7 +89,10 @@ describe("ZkEntry", function () {
     zkPVerifier = await zkPVerifierCon.deploy()
     await zkPVerifier.deployed()
     console.log("+++++++++++++ZkEntry+++++++++++++++ ", zkPVerifier.address)
-    await zkPVerifier.initialize(shadowWalletFactory.address)
+    await expect(zkPVerifier.initialize(AddressZero, admin.address)).to.be.revertedWith("invalid factory")
+    await expect(zkPVerifier.initialize(shadowWalletFactory.address, AddressZero)).to.be.revertedWith("invalid owner")
+    await zkPVerifier.initialize(shadowWalletFactory.address, admin.address)
+    await zkPVerifier.adminPause(0x0)
 
     erc20TokenCon = await ethers.getContractFactory("ERC20TokenSample", deployer)
     erc20Token = await erc20TokenCon.deploy()
@@ -138,7 +141,8 @@ describe("ZkEntry", function () {
       122,
       "0x37106196440789755adfccc3a57770fecef1eaca423ca7d75f34dab84d344684",
       encodedProof,
-      msg
+      msg,
+      user1.address
     )).to.be.revertedWith("invalid caller")
 
     await expect(shadowWallet.initialize(
@@ -147,7 +151,8 @@ describe("ZkEntry", function () {
       122,
       "0x37106196440789755adfccc3a57770fecef1eaca423ca7d75f34dab84d344684",
       encodedProof,
-      msg
+      msg,
+      user1.address
     )).to.be.revertedWith("invalid factory")
 
     await shadowWallet.initialize(
@@ -156,15 +161,16 @@ describe("ZkEntry", function () {
       122,
       "0x37106196440789755adfccc3a57770fecef1eaca423ca7d75f34dab84d344684",
       encodedProof,
-      msg
+      msg,
+      user1.address
     )
 
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [130, 0, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-       [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+       [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
     
     await expect(zkPVerifier.newWallet(
         130,
@@ -173,7 +179,7 @@ describe("ZkEntry", function () {
         msg
     )).to.be.revertedWith("only root proof kind can be used during clone wallet")
 
-    await zkPVerifier.newWallet(
+    await zkPVerifier.connect(user1).newWallet(
         130,
         "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
         traditionalProof,
@@ -183,11 +189,11 @@ describe("ZkEntry", function () {
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 0, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-       [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+       [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
 
-    tx = await zkPVerifier.newWallet(
+    tx = await zkPVerifier.connect(user1).newWallet(
         123,
         "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
         traditionalProof,
@@ -210,9 +216,9 @@ describe("ZkEntry", function () {
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 0, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
     var {publicSignals, proof} = await generateProof(msgHash, privKey)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-       [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+       [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
     encodedProof = abi.encodeParameters(['uint256[]', 'uint256[2]', 'uint256[2][2]', 'uint256[2]'], 
     [
        publicSignals.map((p)=>p.toString()), 
@@ -224,7 +230,7 @@ describe("ZkEntry", function () {
        proof.pi_c.slice(0, 2)
     ])
 
-    await expect(zkPVerifier.grant(
+    await expect(zkPVerifier.connect(user1).grant(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -251,7 +257,7 @@ describe("ZkEntry", function () {
       msg
     )).to.be.revertedWith("proof kind has not been granted")
 
-    await expect(zkPVerifier.grant(
+    await expect(zkPVerifier.connect(user1).grant(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -264,9 +270,9 @@ describe("ZkEntry", function () {
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 1, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
     var {publicSignals, proof} = await generateProof(msgHash, privKey)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-       [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+       [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
     encodedProof = abi.encodeParameters(['uint256[]', 'uint256[2]', 'uint256[2][2]', 'uint256[2]'], 
     [
        publicSignals.map((p)=>p.toString()), 
@@ -278,7 +284,7 @@ describe("ZkEntry", function () {
        proof.pi_c.slice(0, 2)
     ])
     
-    await zkPVerifier.grant(
+    await zkPVerifier.connect(user1).grant(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -287,7 +293,7 @@ describe("ZkEntry", function () {
       msg
     )
 
-    await expect(zkPVerifier.grant(
+    await expect(zkPVerifier.connect(user1).grant(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -510,20 +516,20 @@ describe("ZkEntry", function () {
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 4, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
        [admin.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
-    await expect(zkPVerifier.execute(
+    await expect(zkPVerifier.connect(user1).execute(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
       msg
     )).to.be.revertedWith("proof is not valid")
 
-    signature1 = await verifyAccount1.signMessage(ethers.utils.arrayify(msgHash))
+    signature1 = await user2.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-       [verifyAccount1.address, "0x"+ signature1.toString(16).substr(130,2), "0x" + signature1.toString(16).substr(2,64), "0x" + signature1.toString(16).substr(66,64)])
-    await expect(zkPVerifier.execute(
+       [user2.address, "0x"+ signature1.toString(16).substr(130,2), "0x" + signature1.toString(16).substr(2,64), "0x" + signature1.toString(16).substr(66,64)])
+    await expect(zkPVerifier.connect(user2).execute(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -531,15 +537,15 @@ describe("ZkEntry", function () {
     )).to.be.revertedWith("invalid material")
 
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-       [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
-    await zkPVerifier.execute(
+       [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+    await zkPVerifier.connect(user1).execute(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
       msg
     )
 
-    await expect(zkPVerifier.execute(
+    await expect(zkPVerifier.connect(user1).execute(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -550,10 +556,10 @@ describe("ZkEntry", function () {
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 5, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
        [admin.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
-    await expect(zkPVerifier.revoke(
+    await expect(zkPVerifier.connect(user1).revoke(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -561,7 +567,7 @@ describe("ZkEntry", function () {
       msg
     )).to.be.revertedWith("proof kind is equal")
 
-    await expect(zkPVerifier.revoke(
+    await expect(zkPVerifier.connect(user1).revoke(
       123,
       "0x2eaa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -569,7 +575,7 @@ describe("ZkEntry", function () {
       msg
     )).to.be.revertedWith("proof kind has not been granted")
 
-    await expect(zkPVerifier.revoke(
+    await expect(zkPVerifier.connect(user1).revoke(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -577,7 +583,7 @@ describe("ZkEntry", function () {
       msg
     )).to.be.revertedWith("granted proof kind has been revoked")
 
-    await expect(zkPVerifier.revoke(
+    await expect(zkPVerifier.connect(user1).revoke(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -585,10 +591,10 @@ describe("ZkEntry", function () {
       msg
     )).to.be.revertedWith("proof is not valid")
     
-    signature1 = await verifyAccount1.signMessage(ethers.utils.arrayify(msgHash))
+    signature1 = await user2.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-      [verifyAccount1.address, "0x"+ signature1.toString(16).substr(130,2), "0x" + signature1.toString(16).substr(2,64), "0x" + signature1.toString(16).substr(66,64)])
-    await expect(zkPVerifier.revoke(
+      [user2.address, "0x"+ signature1.toString(16).substr(130,2), "0x" + signature1.toString(16).substr(2,64), "0x" + signature1.toString(16).substr(66,64)])
+    await expect(zkPVerifier.connect(user2).revoke(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -597,10 +603,10 @@ describe("ZkEntry", function () {
     )).to.be.revertedWith("invalid material")
 
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-    [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+    [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
 
     nullProof = abi.encodeParameters(['address'], [admin.address])
-    await zkPVerifier.grant(
+    await zkPVerifier.connect(user1).grant(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -637,10 +643,10 @@ describe("ZkEntry", function () {
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 7, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-      [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
-    await zkPVerifier.revoke(
+      [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+    await zkPVerifier.connect(user1).revoke(
       123,
       "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
       traditionalProof,
@@ -715,10 +721,10 @@ describe("ZkEntry", function () {
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 10, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
-    signature = await verifyAccount.signMessage(ethers.utils.arrayify(msgHash))
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
-      [verifyAccount.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
-    await zkPVerifier.revoke(
+      [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+    await zkPVerifier.connect(user1).revoke(
         123,
         "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
         traditionalProof,

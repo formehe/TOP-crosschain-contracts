@@ -7,7 +7,8 @@ interface IShadowFactory {
         uint256        id,
         uint256        proofKind,
         bytes calldata proof,
-        bytes calldata action
+        bytes calldata action,
+        address        context
     ) external returns (address _shadowWallet);
 
     function getValidator(uint256 proofKind) external view returns (address);

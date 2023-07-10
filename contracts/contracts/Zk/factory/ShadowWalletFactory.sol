@@ -49,11 +49,12 @@ contract ShadowWalletFactory is IShadowFactory, AccessControl, Initializable{
         uint256        id,
         uint256        proofKind,
         bytes calldata proof,
-        bytes calldata action
+        bytes calldata action,
+        address        context
     ) external override returns (address _shadowWallet) {
         _shadowWallet = Clones.clone(template);
         require(proofKind == rootProofKind, "only root proof kind can be used during clone wallet");
-        IShadowWallet(_shadowWallet).initialize(_walletProxy, address(this), id, proofKind, proof, action);
+        IShadowWallet(_shadowWallet).initialize(_walletProxy, address(this), id, proofKind, proof, action, context);
     }
 
     function getValidator(uint256 proofKind) external view override returns (address) {

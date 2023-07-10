@@ -8,7 +8,8 @@ interface IShadowWallet {
         uint256        id,
         uint256        proofKind,
         bytes calldata proof,
-        bytes calldata action
+        bytes calldata action,
+        address        context
     ) external;
 
     function execute(

@@ -13,7 +13,7 @@ contract ShadowWallet is IShadowWallet, Initializable {
     mapping(uint256 => uint256) public materials;
     // a kind of validator can be granted only once;
     mapping(uint256 => uint256) public granted;
-    mapping(uint256 => uint256[]) public granter;
+    mapping(uint256 => uint256[]) private granter;
 
     event ProofUsed(
         address wallet,
@@ -40,7 +40,8 @@ contract ShadowWallet is IShadowWallet, Initializable {
         uint256           id,
         uint256           proofKind,
         bytes calldata    proof,
-        bytes calldata    action
+        bytes calldata    action,
+        address           context
     ) external override initializer{
         require(Address.isContract(_caller), "invalid caller");
         require(Address.isContract(_factory), "invalid factory");
@@ -50,10 +51,10 @@ contract ShadowWallet is IShadowWallet, Initializable {
         address temp = factory.getValidator(proofKind);
         require(temp != address(0), "validator is not exist");
         IValidator validator = IValidator(temp);
-        require(validator.verify(id, proof, action, msg.sender), "proof is not valid");
+        require(validator.verify(id, proof, action, context), "proof is not valid");
         require((validator.getChallengeId(proof, action) == nonce) && (nonce == 0), "nonce uncorrect");
         
-        uint256 material = validator.getMaterial(proof, action, msg.sender);
+        uint256 material = validator.getMaterial(proof, action, context);
         require(materials[proofKind] == 0 && material != 0, "material is exist");
         materials[proofKind] = material;
         granted[proofKind] = proofKind;
@@ -187,7 +188,7 @@ contract ShadowWallet is IShadowWallet, Initializable {
             }
         }
 
-        //may be need large gas
+        //may be spent large gas
         _clean(revokedProofKind);
 
         require((validator.getChallengeId(proof, action) == nonce) && (nonce != 0), "nonce uncorrect");
