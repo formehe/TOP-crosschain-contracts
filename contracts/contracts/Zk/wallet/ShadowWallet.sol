@@ -78,13 +78,14 @@ contract ShadowWallet is IShadowWallet, Initializable {
         IValidator validator = IValidator(temp);
         require(validator.verify(id, proof, action, context), "proof is not valid");
         require((validator.getChallengeId(proof, action) == nonce) && (nonce != 0), "nonce uncorrect");
+        uint256 tempNonce = nonce;
         nonce++;
 
         uint256 material = validator.getMaterial(proof, action, context);
         require(material != 0 && material == materials[proofKind], "invalid material");
 
         (address target, bytes memory method) = validator.getTargetMethod(proof, action);
-        emit ProofUsed(address(this), nonce);    
+        emit ProofUsed(address(this), tempNonce);
         return Address.functionCall(target, method);
     }
 

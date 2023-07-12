@@ -7,7 +7,7 @@ const { ethers, upgrades } = require("hardhat");
 const { generateProof } = require("./helpers/zkEcdsaPoseidon")
 const { keccak256 } = require('@ethersproject/keccak256')
 const { poseidonContract } = require("circomlibjs")
-var EC = require('elliptic').ec;
+// var EC = require('elliptic').ec;
 
 describe("ZkEntry", function () {
   beforeEach(async function () {
@@ -106,13 +106,13 @@ describe("ZkEntry", function () {
       "0xf5b552f609f5b552f608f5b552f6082ff5b552f608f5b552f608f5b552f6082f"
     );
     
-    ec = new EC('secp256k1');
+    // ec = new EC('secp256k1');
 
-    key = ec.genKeyPair();
-    verifyAccount = new ethers.Wallet("0x" + key.getPrivate('hex'))
+    // key = ec.genKeyPair();
+    // verifyAccount = new ethers.Wallet("0x" + key.getPrivate('hex'))
 
-    key1 = ec.genKeyPair();
-    verifyAccount1 = new ethers.Wallet("0x" + key1.getPrivate('hex'))
+    // key1 = ec.genKeyPair();
+    // verifyAccount1 = new ethers.Wallet("0x" + key1.getPrivate('hex'))
   })
 
   it('ZkEntry', async () => {
