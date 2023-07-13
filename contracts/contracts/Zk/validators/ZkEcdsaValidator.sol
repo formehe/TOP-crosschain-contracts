@@ -21,8 +21,7 @@ contract ZkEcdsaValidator is IValidator, Initializable{
     function verify(
         uint256                 id,
         bytes          calldata proof,
-        bytes          calldata action,
-        address                 /*context*/
+        bytes          calldata action
     ) external view override returns (bool) {
         (uint256[] memory inputs, uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c) 
                         = abi.decode(proof, (uint256[],uint256[2],uint256[2][2],uint256[2]));
@@ -31,6 +30,14 @@ contract ZkEcdsaValidator is IValidator, Initializable{
         require(inputs[2] == PoseidonUnit1L.poseidon([uint256(msgHash)]), "invalid hash");
         require(id == _getUserId(action), "invalid user");
         return verifier.verifyProof(a, b, c, inputs);
+    }
+
+    function checkContext(
+        bytes          calldata /* proof*/,
+        bytes          calldata /*action*/,
+        address                 /*context*/
+    ) external pure override returns(bool r){
+        return true;
     }
 
     function getID() external pure override returns (bytes32) {

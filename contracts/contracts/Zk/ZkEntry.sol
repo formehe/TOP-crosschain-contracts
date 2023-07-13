@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../common/AdminControlledUpgradeable.sol";
 import "./interfaces/IValidator.sol";
 import "./wallet/IShadowWallet.sol";

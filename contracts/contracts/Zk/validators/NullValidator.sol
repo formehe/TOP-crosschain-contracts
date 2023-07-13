@@ -15,11 +15,18 @@ contract NullValidator is IValidator, Initializable{
 
     function verify(
         uint256                 id,
-        bytes          calldata proof,
-        bytes          calldata action,
-        address                 context
+        bytes          calldata /*proof*/,
+        bytes          calldata action
     ) external pure override returns (bool) {
         require(id == _getUserId(action), "invalid user");
+        return true;
+    }
+
+    function checkContext(
+        bytes          calldata proof,
+        bytes          calldata /*action*/,
+        address                 context
+    ) external pure override returns(bool r){
         (address owner) = abi.decode(proof, (address));
         if (context != owner) {
             return false;

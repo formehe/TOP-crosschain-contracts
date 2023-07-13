@@ -685,9 +685,54 @@ describe("ZkEntry", function () {
       nullProof,
       msg
     )
-    
+
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
     msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 9, erc20Token.address, transferCalldata])
+    msgHash = keccak256(msg)
+    var {publicSignals, proof} = await generateProof(msgHash, privKey1)
+    encodedProof = abi.encodeParameters(['uint256[]', 'uint256[2]', 'uint256[2][2]', 'uint256[2]'], 
+    [
+       publicSignals.map((p)=>p.toString()), 
+       proof.pi_a.slice(0, 2), 
+       [
+         [proof.pi_b[0][1].toString(), proof.pi_b[0][0].toString()],
+         [proof.pi_b[1][1].toString(), proof.pi_b[1][0].toString()]
+       ],
+       proof.pi_c.slice(0, 2)
+    ])
+    await zkPVerifier.revoke(
+      123,
+      "0x37106196440789755adfccc3a57770fecef1eaca423ca7d75f34dab84d344684",
+      encodedProof,
+      "0xb62a4cd0de3357c8b9b8da3e7098ae042a0cb5aa226dafdf1d4871c8aeff8609",
+      msg
+    )
+
+    transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
+    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 10, erc20Token.address, transferCalldata])
+    msgHash = keccak256(msg)
+    var {publicSignals, proof} = await generateProof(msgHash, privKey1)
+    encodedProof = abi.encodeParameters(['uint256[]', 'uint256[2]', 'uint256[2][2]', 'uint256[2]'], 
+    [
+       publicSignals.map((p)=>p.toString()), 
+       proof.pi_a.slice(0, 2), 
+       [
+         [proof.pi_b[0][1].toString(), proof.pi_b[0][0].toString()],
+         [proof.pi_b[1][1].toString(), proof.pi_b[1][0].toString()]
+       ],
+       proof.pi_c.slice(0, 2)
+    ])
+    await zkPVerifier.grant(
+      123,
+      "0x37106196440789755adfccc3a57770fecef1eaca423ca7d75f34dab84d344684",
+      encodedProof,
+      "0xb62a4cd0de3357c8b9b8da3e7098ae042a0cb5aa226dafdf1d4871c8aeff8609",
+      nullProof,
+      msg
+    )
+
+    transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
+    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 11, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
     var {publicSignals, proof} = await generateProof(msgHash, privKey1)
     encodedProof = abi.encodeParameters(['uint256[]', 'uint256[2]', 'uint256[2][2]', 'uint256[2]'], 
@@ -710,7 +755,7 @@ describe("ZkEntry", function () {
     )).to.be.revertedWith("granted proof kind has been granted")
 
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
-    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 9, erc20Token.address, transferCalldata])
+    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 11, erc20Token.address, transferCalldata])
     await zkPVerifier.connect(admin).execute(
       123,
       "0xb62a4cd0de3357c8b9b8da3e7098ae042a0cb5aa226dafdf1d4871c8aeff8609",
@@ -719,7 +764,7 @@ describe("ZkEntry", function () {
     )
 
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
-    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 10, erc20Token.address, transferCalldata])
+    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 12, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
     signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
     traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
@@ -733,7 +778,27 @@ describe("ZkEntry", function () {
     )
 
     transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
-    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 11, erc20Token.address, transferCalldata])
+    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 13, erc20Token.address, transferCalldata])
+    msgHash = keccak256(msg)
+    signature = await user1.signMessage(ethers.utils.arrayify(msgHash))
+    traditionalProof = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
+      [user1.address, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64)])
+
+    signature1 = await user2.signMessage(ethers.utils.arrayify(msgHash))
+    traditionalProof1 = abi.encodeParameters(['address', 'uint8', 'bytes32', 'bytes32'], 
+      [user2.address, "0x"+ signature1.toString(16).substr(130,2), "0x" + signature1.toString(16).substr(2,64), "0x" + signature1.toString(16).substr(66,64)])
+
+
+    await zkPVerifier.connect(user1).changeMaterial(
+      123,
+      "0x2daa737e13c50c4bbce0e98ee727347a0b510c39a5766854fc1e579342d095aa",
+      traditionalProof,
+      traditionalProof1,
+      msg
+    )
+
+    transferCalldata = erc20Token.interface.encodeFunctionData('transfer', [user.address, 128])
+    msg = abi.encodeParameters(['uint256', 'uint256', 'address', 'bytes'], [123, 14, erc20Token.address, transferCalldata])
     msgHash = keccak256(msg)
     var {publicSignals, proof} = await generateProof(msgHash, privKey1)
     encodedProof = abi.encodeParameters(['uint256[]', 'uint256[2]', 'uint256[2][2]', 'uint256[2]'], 

@@ -18,16 +18,26 @@ contract TraditionalEcdsaValidator is IValidator, Initializable{
     function verify(
         uint256                 id,
         bytes          calldata proof,
-        bytes          calldata action,
-        address                 context
+        bytes          calldata action
     ) external pure override returns (bool) {
         // verify that zkp is valid
         (address owner, uint8 v, bytes32 r, bytes32 s) = abi.decode(proof, (address,uint8,bytes32,bytes32));
         bytes32 msgHash = keccak256(action);
         address recoveredOwner = ECDSA.recover(ECDSA.toEthSignedMessageHash(msgHash), v, r, s);
         require(id == _getUserId(action), "invalid user");
-        require(context == recoveredOwner, "invalid context");
         if (owner != recoveredOwner) {
+            return false;
+        }
+        return true;
+    }
+
+    function checkContext(
+        bytes          calldata proof,
+        bytes          calldata /*action*/,
+        address                 context
+    ) external pure override returns(bool r){
+        (address owner, , , ) = abi.decode(proof, (address,uint8,bytes32,bytes32));
+        if (context != owner) {
             return false;
         }
         return true;

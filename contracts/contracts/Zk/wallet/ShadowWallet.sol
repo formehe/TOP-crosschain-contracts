@@ -51,7 +51,8 @@ contract ShadowWallet is IShadowWallet, Initializable {
         address temp = factory.getValidator(proofKind);
         require(temp != address(0), "validator is not exist");
         IValidator validator = IValidator(temp);
-        require(validator.verify(id, proof, action, context), "proof is not valid");
+        require(validator.verify(id, proof, action), "proof is not valid");
+        require(validator.checkContext(proof, action, context), "proof is not valid");
         require((validator.getChallengeId(proof, action) == nonce) && (nonce == 0), "nonce uncorrect");
         
         uint256 material = validator.getMaterial(proof, action, context);
@@ -76,7 +77,8 @@ contract ShadowWallet is IShadowWallet, Initializable {
         address temp = factory.getValidator(proofKind);
         require(temp != address(0), "validator is not exist");
         IValidator validator = IValidator(temp);
-        require(validator.verify(id, proof, action, context), "proof is not valid");
+        require(validator.verify(id, proof, action), "proof is not valid");
+        require(validator.checkContext(proof, action, context), "proof is not valid");
         require((validator.getChallengeId(proof, action) == nonce) && (nonce != 0), "nonce uncorrect");
         uint256 tempNonce = nonce;
         nonce++;
@@ -104,8 +106,9 @@ contract ShadowWallet is IShadowWallet, Initializable {
         require(temp != address(0), "validator is not exist");
         IValidator validator = IValidator(temp);
 
-        require(validator.verify(id, oldProof, action, context), "proof is not valid");
-        require(validator.verify(id, proof, action, context), "proof is not valid");
+        require(validator.verify(id, oldProof, action), "proof is not valid");
+        require(validator.checkContext(oldProof, action, context), "proof is not valid");
+        require(validator.verify(id, proof, action), "proof is not valid");
 
         uint256 material = validator.getMaterial(oldProof, action, context);
         require(material != 0 && material == materials[proofKind], "invalid material");
@@ -136,15 +139,16 @@ contract ShadowWallet is IShadowWallet, Initializable {
         address temp = factory.getValidator(proofKind);
         require(temp != address(0), "validator is not exist");
         IValidator validator = IValidator(temp);
-        require(validator.verify(id, proof, action, context), "proof is not valid");
-        
+        require(validator.verify(id, proof, action), "proof is not valid");
+        require(validator.checkContext(proof, action, context), "proof is not valid");
+
         uint256 material = validator.getMaterial(proof, action, context);
         require(material != 0 && material == materials[proofKind], "invalid material");
 
         temp = factory.getValidator(grantedProofKind);
         require(temp != address(0), "validator is not exist");
         validator = IValidator(temp);
-        // require(validator.verify(id, grantedProof, action), "proof is not valid");
+        require(validator.verify(id, grantedProof, action), "proof is not valid");
 
         material = validator.getMaterial(grantedProof, action, context);
         require(material != 0, "invalid material");
@@ -174,7 +178,8 @@ contract ShadowWallet is IShadowWallet, Initializable {
         address temp = factory.getValidator(proofKind);
         require(temp != address(0), "validator is not exist");
         IValidator validator = IValidator(temp);
-        require(validator.verify(id, proof, action, context), "proof is not valid");
+        require(validator.verify(id, proof, action), "proof is not valid");
+        require(validator.checkContext(proof, action, context), "proof is not valid");
         
         uint256 material = validator.getMaterial(proof, action, context);
         require(material != 0 && material == materials[proofKind], "invalid material");

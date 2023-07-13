@@ -5,9 +5,14 @@ interface IValidator {
     function verify(
         uint256        id,
         bytes calldata proof,
-        bytes calldata action,
-        address        context
+        bytes calldata action
     ) external view returns (bool r);
+
+    function checkContext(
+        bytes          calldata proof,
+        bytes          calldata action,
+        address                 context
+    ) external view returns(bool r);
 
     function getID() external pure returns (bytes32);
 
