@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../interfaces/IValidator.sol";
 /**
     The format of action:|userID|Nonce|Target|Action|
+    The format of proof:|sender|
 */
 
 contract NullValidator is IValidator, Initializable{

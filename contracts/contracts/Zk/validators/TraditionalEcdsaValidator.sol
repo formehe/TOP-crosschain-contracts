@@ -7,9 +7,11 @@ import "../interfaces/IValidator.sol";
 
 /**
     The format of action:|userID|Nonce|Target|Action|
+    The format of proof: |sender account|v|r|s|
 */
 
 contract TraditionalEcdsaValidator is IValidator, Initializable{
+    using ECDSA for bytes32;
     function initialize(
         address /*_verifier*/
     ) public initializer {
@@ -22,8 +24,8 @@ contract TraditionalEcdsaValidator is IValidator, Initializable{
     ) external pure override returns (bool) {
         // verify that zkp is valid
         (address owner, uint8 v, bytes32 r, bytes32 s) = abi.decode(proof, (address,uint8,bytes32,bytes32));
-        bytes32 msgHash = keccak256(action);
-        address recoveredOwner = ECDSA.recover(ECDSA.toEthSignedMessageHash(msgHash), v, r, s);
+        bytes32 msgHash = ECDSA.toEthSignedMessageHash(keccak256(action));
+        address recoveredOwner = msgHash.recover(v, r, s);
         require(id == _getUserId(action), "invalid user");
         if (owner != recoveredOwner) {
             return false;

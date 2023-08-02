@@ -7,6 +7,7 @@ import "../interfaces/IVerifier.sol";
 import "../lib/Poseidon.sol";
 /**
     The format of action:|userID|Nonce|Target|Action|
+    The format of proof:|inputs|a|b|c|
 */
 
 contract ZkEcdsaValidator is IValidator, Initializable{
