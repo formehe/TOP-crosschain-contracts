@@ -352,8 +352,8 @@ abstract contract TimestampGovernor is Context, ERC165, EIP712, IGovernor {
     ) internal virtual returns (uint256) {
         ProposalCore storage proposal = _proposals[proposalId];
         require(state(proposalId) == ProposalState.Active, "Governor: vote not currently active");
-
-        uint256 weight = getVotes(account, proposal.voteStart.getDeadline());
+        require(block.timestamp >= proposal.voteStart.getDeadline(), "not mint yet");
+        uint256 weight = getVotes(account, block.number);
         _countVote(proposalId, account, support, weight);
 
         emit VoteCast(account, proposalId, support, weight, reason);

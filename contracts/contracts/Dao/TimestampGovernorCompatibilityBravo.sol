@@ -247,7 +247,8 @@ abstract contract TimestampGovernorCompatibilityBravo is IGovernorTimelock, IGov
      */
     function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
         ProposalDetails storage details = _proposalDetails[proposalId];
-        return quorum(proposalSnapshot(proposalId)) <= details.forVotes;
+        require(block.timestamp >= proposalSnapshot(proposalId), "not mint yet");
+        return quorum(block.number - 1) <= details.forVotes;
     }
 
     /**
