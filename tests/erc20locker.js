@@ -83,7 +83,7 @@ describe('ERC20Locker', () => {
     console.log("+++++++++++++ImmutableVotes+++++++++++++++ ", votes.address)
 
     //deploy TDao
-    tdaoCon = await ethers.getContractFactory("TDao", wallet)
+    tdaoCon = await ethers.getContractFactory("EDao", wallet)
     tdao = await tdaoCon.deploy(votes.address, 2, 3, 70, timelockcontroller.address, wallet2.address, 1,5,1,7)
     await tdao.deployed()
     console.log("+++++++++++++TDao+++++++++++++++ ", tdao.address)

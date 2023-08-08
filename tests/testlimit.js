@@ -54,7 +54,7 @@ describe("Limit", function () {
         console.log("+++++++++++++ImmutableVotes+++++++++++++++ ", votes.address)
 
         //deploy TDao
-        tdaoCon = await ethers.getContractFactory("TDao", deployer)
+        tdaoCon = await ethers.getContractFactory("EDao", deployer)
         tdao = await tdaoCon.deploy(votes.address, 2, 3, 70, timelockcontroller.address, admin.address, 1,5,1,7)
         await tdao.deployed()
         console.log("+++++++++++++TDao+++++++++++++++ ", tdao.address)

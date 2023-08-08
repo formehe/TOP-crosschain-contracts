@@ -46,7 +46,7 @@ describe("Proxy", function () {
         console.log("+++++++++++++ImmutableVotes+++++++++++++++ ", votes.address)
 
         //deploy TDao
-        tdaoCon = await ethers.getContractFactory("TDao", deployer)
+        tdaoCon = await ethers.getContractFactory("EDao", deployer)
         await expect(tdaoCon.deploy(votes.address, 0, 3, 70, timelockcontroller.address, admin.address, 1,5,1,7)).to.be.revertedWith("vote delay")
         await expect(tdaoCon.deploy(votes.address, 1, 0, 70, timelockcontroller.address, admin.address, 1,5,1,7)).to.be.revertedWith("voting period ")
         await expect(tdaoCon.deploy(votes.address, 1, 3, 120, timelockcontroller.address, admin.address, 1,5,1,7)).to.be.revertedWith("quorumNumerator over quorumDenominator")

@@ -28,5 +28,8 @@
     "safe-buffer": "^5.2.1",
     "solidity-coverage": "^0.7.20",
     "web3": "^1.7.3"
+  },
+  "dependencies": {
+    "@openzeppelin/hardhat-upgrades": "^1.13.0"
   }
 }
