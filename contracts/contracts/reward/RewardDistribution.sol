@@ -10,19 +10,23 @@ contract RewardDistribution is UUPSUpgradeable, AdminControlledUpgradeable {
     IERC20  public reward;
     mapping(address => bool) public provers;
     mapping(uint256 => bool) public proofs;
-    uint constant UNPAUSED_ALL = 0;
-    uint constant PAUSED_TRANSFER = 1 << 0;
+    uint256 constant UNPAUSED_ALL = 0;
+    uint256 constant PAUSED_TRANSFER = 1 << 0;
+    uint256 public workLoadPercent;
 
     event ProverBound(address prover);
     event ProverUnbound(address prover);
     event WorkProofUsed(uint256 nonce, address trasfered, uint256 amount);
 
-    function initialize(address _reward, address _dao, address _owner) external initializer {
+    function initialize(address _reward, address _dao, address _owner, uint256 _workLoadPercent) external initializer {
         require(_reward.code.length > 0, "not contract address");
         //require(_dao.code.length > 0, "not contract address");
         require(_dao != address(0), "invalid address");
         require(_owner != address(0), "invalid owner");
+        require(_workLoadPercent != 0, "invalid work load percent");
         reward = IERC20(_reward);
+        
+        workLoadPercent = _workLoadPercent;
         AdminControlledUpgradeable._AdminControlledUpgradeable_init(msg.sender, 0xff);
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
         _setRoleAdmin(CONTROLLED_ROLE, ADMIN_ROLE);
@@ -56,6 +60,7 @@ contract RewardDistribution is UUPSUpgradeable, AdminControlledUpgradeable {
         require(workload != 0, "work load can not be zero");
         require(!proofs[nonce], "proof has been used");
         proofs[nonce] = true;
+        // uint256 asset = workload / workLoadPercent;
         emit WorkProofUsed(nonce, worker, workload);
         return reward.transfer(worker, workload);
     }
