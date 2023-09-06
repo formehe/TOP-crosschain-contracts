@@ -19,11 +19,17 @@ abstract contract ICrossGovernance{
     }
 
     function _verify(bytes32 hash, bytes[] memory signs) internal view returns(bool) {
+        uint256 count;
         for (uint256 i = 0; i < signs.length; i++) {
             (address _signer, ) = hash.tryRecover(signs[i]);
             require(_signer != address(0), "invalid signer");
             require(isVoterExist(_signer), "invalid voter");
+            count++;
         }
+        if (count < _quorum()) {
+            return false;
+        }
+
         return true;
     }
 
@@ -32,6 +38,8 @@ abstract contract ICrossGovernance{
     function _changeNonce(uint256 newNonce, uint256 currentTerm) internal virtual;
     
     function _changeTerm(uint256 newTerm) internal virtual;
+    
+    function _quorum() internal view virtual returns (uint256);
 
     function _changeVoters(address[] memory voters, uint256 newTerm) internal virtual;
     

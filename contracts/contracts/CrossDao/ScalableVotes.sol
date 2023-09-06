@@ -87,7 +87,8 @@ contract ScalableVotes is IVotes {
         return false;
     }
 
-    function delegates(address /*account*/) override external pure returns (address) {
+    function delegates(address /*account*/) override external pure returns (address delegated) {
+        (delegated);
         require(false, "not support");
     }
 

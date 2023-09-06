@@ -7,9 +7,10 @@ import "@openzeppelin/contracts/utils/Timers.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "../common/AdminControlledUpgradeable.sol";
 import "./CrossDaoCommon.sol";
 
-contract CrossMultiSignDao {
+contract CrossMultiSignDao is AdminControlledUpgradeable{
     using Counters       for Counters.Counter;
     using Timers         for Timers.Timestamp;
     using SafeCast       for uint256;
@@ -51,23 +52,44 @@ contract CrossMultiSignDao {
     IVotes                               private token;
     uint256                              private votingDelay;
     uint256                              private currentProposalId;
+    uint256                              private percent;
 
     modifier onlyGovernance() {
         require(msg.sender == _executor(), "Governor: onlyGovernance");
         _;
     }
 
-    constructor(IVotes _tokenAddress, uint256 _votingDelay) {
+    constructor(IVotes _tokenAddress, uint256 _votingDelay, address _owner, uint256 _percent) initializer {
+        require(_percent <= 100 && _percent > 0, "invalid percent");
+        require(votingDelay >= 10 minutes, "invalid vote delay");
+
         token = _tokenAddress;
         _nonces[block.chainid] = Counters.Counter(1);
         currentTerm = Counters.Counter(1);
         votingDelay = _votingDelay;
+        percent = _percent;
+
+        _setRoleAdmin(CONTROLLED_ROLE, OWNER_ROLE);
+        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
+
+        _grantRole(OWNER_ROLE, _owner);
+        _grantRole(ADMIN_ROLE, _msgSender());
+
+        _AdminControlledUpgradeable_init(_msgSender(), 0);
+
     }
 
-    function bindNeighborChains(uint256[] calldata chainIDs) external {
+    /* */
+    function bindNeighborChains(uint256[] calldata chainIDs) external onlyRole(ADMIN_ROLE) {
         for (uint256 i = 0; i < chainIDs.length; i++) {
             require(_nonces[chainIDs[i]].current() == 0, "invalid nonce");
             _nonces[chainIDs[i]] = Counters.Counter(1);
+        }
+    }
+
+    function setVotingDelay(uint256 _votingDelay) external onlyRole(ADMIN_ROLE) {
+        if (_votingDelay >= 10 minutes) {
+            votingDelay = _votingDelay;
         }
     }
 
@@ -264,7 +286,7 @@ contract CrossMultiSignDao {
     }
 
     function quorum(uint256 blockNumber) public view virtual returns (uint256) {
-        return token.getPastTotalSupply(blockNumber) * 2 / 3;
+        return (token.getPastTotalSupply(blockNumber) * percent + 99) / 100;
     }
 
     function _setCurrentProposalID(uint256 proposalId) internal {

@@ -12,7 +12,9 @@ contract DaoExecutor is ICrossGovernance, Initializable{
     uint256 private peerChainID;
     address private peerDao;
     uint256 private term;
+    uint256 private numOfVoters;
     uint256 private nonce;
+    uint256 private percent;
 
     event NonceChanged(
         uint256 termID,
@@ -28,7 +30,8 @@ contract DaoExecutor is ICrossGovernance, Initializable{
         address voter
     );
     
-    function initialize(address[] calldata _voters, uint256 _peerChainID, address _peerDao) external initializer {
+    function initialize(address[] calldata _voters, uint256 _peerChainID, address _peerDao, uint256 _percent) external initializer {
+        require(_percent <= 100 && _percent > 0, "invalid percent");
         _changeTerm(1);
         _changeVoters(_voters, 1);
 
@@ -63,9 +66,15 @@ contract DaoExecutor is ICrossGovernance, Initializable{
             termVoters[_voters[i]] = true;
             emit VoterAdded(newTerm, _voters[i]);
         }
+
+        numOfVoters = _voters.length;
     }
 
     function isVoterExist(address voter) public view override returns (bool) {
         return terms[term][voter];
+    }
+
+    function _quorum() internal view override returns (uint256) {
+        return (numOfVoters * percent + 99) / 100;
     }
 }
