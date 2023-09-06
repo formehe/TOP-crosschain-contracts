@@ -77,7 +77,7 @@ contract CrossMultiSignDao {
     function nonces(uint256 chainID) public view  returns (uint256) {
         return _nonces[chainID].current();
     }
-    
+
     function term() public view returns (uint256) {
         return currentTerm.current();
     }
@@ -109,9 +109,9 @@ contract CrossMultiSignDao {
         require(_getVotes(msg.sender) > 0, "proposer must be voter");
         _checkCrossHeader(fromChainID, toChainID);
         require(voteTerm - term() == 1, "dependent term is invalid");
-        require(voters.length > 0, "voters is empty");
 
-        bytes memory proposalInfo = abi.encode(ProposalType.Governor, fromChainID, toChainID, voteTerm, voters, descriptionHash);
+        bytes memory proposalInfo = CrossDaoCommon.encodeCrossDaoGovernance(uint8(ProposalType.Governor), 
+                    fromChainID, toChainID, voteTerm, voters, descriptionHash);
         uint256 proposalID = uint256(keccak256(proposalInfo));
 
         ProposalDetails storage detail = _proposalDetails[proposalID];
@@ -122,6 +122,7 @@ contract CrossMultiSignDao {
         detail.proposalType = uint8(ProposalType.Governor);
         detail.toChainID = toChainID;
         _propose(proposalID);
+        emit CrossDaoCommon.CrossDaoProposalCreated(proposalID, msg.sender, uint8(ProposalType.Governor), proposalInfo);
         return proposalID;
     }
 
@@ -141,8 +142,8 @@ contract CrossMultiSignDao {
         require(voteTerm == term(), "dependent term is invalid");
         require(nonce == nonces(toChainID), "nonce is invalid");
 
-        bytes memory proposalInfo = abi.encode(ProposalType.Common, fromChainID, toChainID, voteTerm, nonce, 
-                                               remoteTarget, action, descriptionHash);
+        bytes memory proposalInfo = CrossDaoCommon.encodeCrossDaoTx(uint8(ProposalType.Common), 
+                fromChainID, toChainID, voteTerm, nonce, remoteTarget, action, descriptionHash);
         uint256 proposalID = uint256(keccak256(proposalInfo));
 
         ProposalDetails storage detail = _proposalDetails[proposalID];
@@ -153,6 +154,7 @@ contract CrossMultiSignDao {
         detail.proposalType = uint8(ProposalType.Common);
         detail.toChainID = toChainID;
         _propose(proposalID);
+        emit CrossDaoCommon.CrossDaoProposalCreated(proposalID, msg.sender, uint8(ProposalType.Governor), proposalInfo);
         return proposalID;
     }
 
@@ -171,7 +173,8 @@ contract CrossMultiSignDao {
         require(voteTerm == term(), "dependent term is invalid");
         require(nonce <= nonces(toChainID), "nonce is be used");
 
-        bytes memory proposalInfo = abi.encode(ProposalType.Amendment, fromChainID, toChainID, voteTerm, nonce, descriptionHash);
+        bytes memory proposalInfo = CrossDaoCommon.encodeCrossDaoAmendment(uint8(ProposalType.Amendment), 
+                    fromChainID, toChainID, voteTerm, nonce, descriptionHash);
         uint256 proposalID = uint256(keccak256(proposalInfo));
 
         ProposalDetails storage detail = _proposalDetails[proposalID];
@@ -182,6 +185,7 @@ contract CrossMultiSignDao {
         detail.proposalType = uint8(ProposalType.Amendment);
         detail.toChainID = toChainID;
         _propose(proposalID);
+        emit CrossDaoCommon.CrossDaoProposalCreated(proposalID, msg.sender, uint8(ProposalType.Governor), proposalInfo);
         return proposalID;
     }
     
@@ -211,11 +215,16 @@ contract CrossMultiSignDao {
         ProposalDetails storage detail = _proposalDetails[proposalId];
         if (detail.proposalType == uint8(ProposalType.Governor)) {
             CrossDaoGovernance memory dao = detail.proposal.decodeCrossDaoGovernance();
-            // (bool success, bytes memory returndata) = token.call(calldatas[i]);
+            string memory errorMessage = "fail to change voter";            
+            (bool success, bytes memory returnData) = address(token).call(abi.encodeWithSignature("changeVoters(address[])", dao.voters));
+            Address.verifyCallResult(success, returnData, errorMessage);
+
             currentTerm.increment();
         } else {
             _nonces[detail.toChainID].increment();
         }
+
+        emit CrossDaoCommon.CrossDaoBridgeEvent(address(this), proposalId, detail.proposalType, detail.proposal, _encodeSignatures(detail.signatures));
     }
 
     function state(uint256 proposalId) public view virtual returns (ProposalState) {
@@ -351,5 +360,11 @@ contract CrossMultiSignDao {
         ProposalDetails storage details = _proposalDetails[proposalId];
         ProposalCore storage proposal = _proposals[proposalId];
         return ((details.againstVotes + details.abstainVotes + proposal.quorum) > proposal.totalVotes);
+    }
+
+    function _encodeSignatures(Signature[] memory signs) internal view virtual returns (bytes[] memory _bytesSigns) {
+        for (uint256 i = 0; i < signs.length; i++) {
+            _bytesSigns[i] = abi.encodePacked(signs[i].r, signs[i].s, signs[i].v);
+        }
     }
 }

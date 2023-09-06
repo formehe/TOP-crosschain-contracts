@@ -4,11 +4,20 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
 contract ScalableVotes is IVotes {
+    event VoterAdded(
+        address voter
+    );
+    
+    event VoterDeleted(
+        address voter
+    );
+    
     struct Checkpoint {
         uint256 fromBlock;
         uint256 votes;
     }
 
+    address[] private voters;
     mapping(address => uint256) private checkpoints;
     Checkpoint private totalSupplyCheckpoint;
     address private governor;
@@ -25,28 +34,57 @@ contract ScalableVotes is IVotes {
             require(_voters[i] != address(0), "invalid voter");
             require(checkpoints[_voters[i]] == 0, "voter can not be repeated");
             checkpoints[_voters[i]] = block.number;
+            voters.push(_voters[i]);
         }
 
-        _totalSupplyCheckpoint = Checkpoint(block.number, voters.length);
+        totalSupplyCheckpoint = Checkpoint(block.number, _voters.length);
         governor = _governor;
     }
 
     function getVotes(address account) override external view returns (uint256) {
-        return _checkpoints[account];
+        return checkpoints[account];
     }
 
     function getPastVotes(address account, uint256 blockNumber) override external view returns (uint256) {
         require(blockNumber < block.number, "block not yet mined");
-        return _checkpoints[account];
+        require(checkpoints[account] <= blockNumber, "no vote"); 
+        return checkpoints[account];
     }
 
     function getPastTotalSupply(uint256 blockNumber) override external view returns (uint256) {
         require(blockNumber < block.number, "block not yet mined");
-        return _totalSupplyCheckpoint.votes;
+        return totalSupplyCheckpoint.votes;
     }
 
-    function mint(address[] calldata voters) external onlyGovernance {
+    function changeVoters(address[] calldata _voters) external onlyGovernance {
+        for (uint256 i = 0; i < voters.length; i++) {
+            if (!_exist(voters[i], _voters)) {
+                voters[i] = voters[voters.length - 1];
+                voters.pop();
+                delete checkpoints[voters[i]];
+                emit VoterDeleted(voters[i]);
+            }
+        }
 
+        for (uint256 i = 0; i < _voters.length; i++) {
+            if (checkpoints[_voters[i]] == 0) {
+                voters.push(_voters[i]);
+                checkpoints[_voters[i]] = block.number;
+                emit VoterAdded(_voters[i]);
+            }
+        }
+
+        totalSupplyCheckpoint.votes = voters.length;
+    }
+
+    function _exist(address _voter, address[] calldata _voters) internal pure returns(bool) {
+        for (uint256 i = 0; i < _voters.length; i++) {
+            if (_voter == _voters[i]) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     function delegates(address /*account*/) override external pure returns (address) {

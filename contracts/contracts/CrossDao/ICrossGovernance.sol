@@ -9,6 +9,11 @@ abstract contract ICrossGovernance{
     using CrossDaoCommon for bytes;
     using ECDSA for bytes32;
 
+    event ProposalExecuted(
+        uint256 proposalID,
+        bytes   proposalInfo
+    );
+
     function _decodeLog(bytes memory log) internal pure returns(address contractAddress, bytes32[] memory topics, bytes memory action) {
         (contractAddress, topics, action) = abi.decode(log, (address,bytes32[],bytes));
     }
@@ -28,7 +33,7 @@ abstract contract ICrossGovernance{
     
     function _changeTerm(uint256 newTerm) internal virtual;
 
-    function _addVoters(address[] memory voters, uint256 newTerm) internal virtual;
+    function _changeVoters(address[] memory voters, uint256 newTerm) internal virtual;
     
     function isVoterExist(address voter) public view virtual returns (bool);
 
@@ -40,6 +45,8 @@ abstract contract ICrossGovernance{
         CrossDaoBridge memory bridge = action.decodeCrossDaoBridge();
         require(bridge.from == contractAddress, "invalid from contract");
         uint256 proposalID = uint256(keccak256(bridge.proposalInfo));
+        require(proposalID == bridge.proposalID, "invalid proposal");
+
         bytes32 signed = keccak256(abi.encode(bridge.from, proposalID, VoteType.For));
         require(_verify(signed, bridge.signs), "invalid signature");
 
@@ -50,7 +57,7 @@ abstract contract ICrossGovernance{
             _checkCrossDaoHeader(dao.fromChainID, dao.toChainID, bridge.from);
             _changeTerm(dao.newTermID);
             
-            _addVoters(dao.voters, dao.newTermID);
+            _changeVoters(dao.voters, dao.newTermID);
         } else if (bridge.governorType == uint8(ProposalType.Common)) {
             CrossDaoTx memory dao = bridge.proposalInfo.decodeCrossDaoTx();
             require(dao.governorType == bridge.governorType, "invalid governor type");
@@ -69,5 +76,7 @@ abstract contract ICrossGovernance{
         } else {
             revert("invalid governor type");
         }
+
+        emit ProposalExecuted(proposalID, bridge.proposalInfo);
     }
 }

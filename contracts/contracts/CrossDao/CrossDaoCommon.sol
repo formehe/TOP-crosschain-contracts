@@ -8,7 +8,6 @@ struct Signature{
 }
 
 struct CrossDaoTx{
-    address     from;
     uint8       governorType;
     uint256     fromChainID;
     uint256     toChainID;
@@ -17,33 +16,29 @@ struct CrossDaoTx{
     address     target;
     bytes       action;
     bytes32     descriptionHash;
-    bytes[]     signs;
 }
 
 struct CrossDaoGovernance{
-    address     from;
     uint8       governorType;
     uint256     fromChainID;
     uint256     toChainID; // uint256(-1) means apply governance to all chain
     uint256     newTermID;
     address[]   voters;
     bytes32     descriptionHash;
-    bytes[]     signs;
 }
 
 struct CrossDaoAmendment{
-    address from;
     uint8   governorType;
     uint256 fromChainID;
     uint256 toChainID;
     uint256 termID;
     uint256 nonce;
     bytes32 descriptionHash;
-    bytes[] signs;
 }
 
 struct CrossDaoBridge{
     address from;
+    uint256 proposalID;
     uint8   governorType;
     bytes   proposalInfo;
     bytes[] signs;
@@ -73,42 +68,11 @@ enum VoteType {
 }
 
 library CrossDaoCommon {
-    event CrossDaoTxEvent(
-        uint8   governorType,
-        uint256 fromChainID,
-        uint256 toChainID,
-        uint256 termID,
-        uint256 nonce,
-        address target,
-        bytes   action,
-        bytes32 descriptionHash
-    );
-
-    event CrossDaoGovernanceEvent(
-        uint8   governorType,
-        address from,
-        uint256 fromChainID,
-        uint256 toChainID,
-        uint256 newTermID,
-        address[] voters,
-        bytes32 descriptionHash
-    );
-
-    event CrossDaoAmendmentEvent(
-        uint8   governorType,
-        address from,
-        uint256 fromChainID,
-        uint256 toChainID,
-        uint256 termID,
-        uint256 nonce,
-        bytes32 descriptionHash
-    );
-
     event CrossDaoProposalCreated(
         uint256 proposalId,
         address proposer,
-        uint256 fromChainID,
-        uint256 toChainID
+        uint8   governorType,
+        bytes   action
     );
 
     event CrossDaoVoteCast(
@@ -120,16 +84,28 @@ library CrossDaoCommon {
 
     event CrossDaoBridgeEvent(
         address from,
+        uint256 proposalID,
         uint8   governorType,
         bytes   proposalInfo,
         bytes[] signs
     );
 
-    bytes32 constant public CrossDaoBridgeEventID = 0x2fe0d86de96779121839da89b9a502c4e2acca9804079f713cc0585d0e028051;
+    bytes32 constant public CrossDaoBridgeEventID = 0x5a7d7afefe941f9424d2ec716afee6eada95b6e28820a13ecbcb183d226d6cac;
 
     function decodeCrossDaoAmendment(bytes memory data) internal pure returns (CrossDaoAmendment memory dao) {
         (dao.governorType, dao.fromChainID, dao.toChainID, dao.termID, dao.nonce, dao.descriptionHash)
             = abi.decode(data,(uint8,uint256,uint256,uint256,uint256,bytes32));
+    }
+
+    function encodeCrossDaoAmendment(
+        uint8   governorType,
+        uint256 fromChainID,
+        uint256 toChainID,
+        uint256 termID,
+        uint256 nonce,
+        bytes32 descriptionHash
+    ) internal pure returns (bytes memory dao) {
+        return abi.encode(governorType, fromChainID, toChainID, termID, nonce, descriptionHash);
     }
 
     function decodeCrossDaoTx(bytes memory data) internal pure returns (CrossDaoTx memory dao) {
@@ -137,13 +113,37 @@ library CrossDaoCommon {
             = abi.decode(data,(uint8,uint256,uint256,uint256,uint256,address,bytes,bytes32));
     }
 
+    function encodeCrossDaoTx(
+        uint8   governorType,
+        uint256 fromChainID,
+        uint256 toChainID,
+        uint256 termID,
+        uint256 nonce,
+        address remoteTarget,
+        bytes memory action,
+        bytes32 descriptionHash
+    ) internal pure returns (bytes memory dao) {
+        return abi.encode(governorType, fromChainID, toChainID, termID, nonce, remoteTarget, action, descriptionHash);
+    }
+
     function decodeCrossDaoGovernance(bytes memory data) internal pure returns (CrossDaoGovernance memory dao) {
         (dao.governorType, dao.fromChainID, dao.toChainID, dao.newTermID, dao.voters, dao.descriptionHash) 
             = abi.decode(data,(uint8,uint256,uint256,uint256,address[],bytes32));
     }
 
+    function encodeCrossDaoGovernance(
+        uint8   governorType,
+        uint256 fromChainID,
+        uint256 toChainID,
+        uint256 termID,
+        address[] memory voters,
+        bytes32 descriptionHash
+    ) internal pure returns (bytes memory dao) {
+        return abi.encode(governorType, fromChainID, toChainID, termID, voters, descriptionHash);
+    }
+
     function decodeCrossDaoBridge(bytes memory data) internal pure returns (CrossDaoBridge memory dao) {
-        (dao.from, dao.governorType, dao.proposalInfo, dao.signs) 
-            = abi.decode(data,(address,uint8,bytes,bytes[]));
-    } 
+        (dao.from, dao.proposalID, dao.governorType, dao.proposalInfo, dao.signs) 
+            = abi.decode(data,(address,uint256,uint8,bytes,bytes[]));
+    }
 }

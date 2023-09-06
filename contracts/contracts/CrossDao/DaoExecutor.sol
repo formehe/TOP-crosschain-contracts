@@ -13,10 +13,24 @@ contract DaoExecutor is ICrossGovernance, Initializable{
     address private peerDao;
     uint256 private term;
     uint256 private nonce;
+
+    event NonceChanged(
+        uint256 termID,
+        uint256 nonce
+    );
+
+    event TermChanged(
+        uint256 termID
+    );
+
+    event VoterAdded(
+        uint256 termID,
+        address voter
+    );
     
     function initialize(address[] calldata _voters, uint256 _peerChainID, address _peerDao) external initializer {
         _changeTerm(1);
-        _addVoters(_voters, 1);
+        _changeVoters(_voters, 1);
 
         require(_peerDao != address(0), "invalid dao address");
         peerDao = _peerDao;
@@ -33,18 +47,21 @@ contract DaoExecutor is ICrossGovernance, Initializable{
         require(currentTerm == term, "invalid term");
         require(newNonce - nonce == 1, "invalid nonce");
         nonce = newNonce;
+        emit NonceChanged(currentTerm, newNonce);
     }
 
     function _changeTerm(uint256 newTerm) internal override{
         require(newTerm - term == 1, "invalid new term");
         term = newTerm;
+        emit TermChanged(newTerm);
     }
 
-    function _addVoters(address[] memory _voters, uint256 newTerm) internal override{
+    function _changeVoters(address[] memory _voters, uint256 newTerm) internal override{
         mapping(address => bool) storage termVoters = terms[newTerm];
         for (uint256 i = 0; i < _voters.length; i++) {
             require(_voters[i] != address(0), "invalid voter");
             termVoters[_voters[i]] = true;
+            emit VoterAdded(newTerm, _voters[i]);
         }
     }
 
