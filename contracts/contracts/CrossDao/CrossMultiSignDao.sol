@@ -7,10 +7,16 @@ import "@openzeppelin/contracts/utils/Timers.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../common/AdminControlledUpgradeable.sol";
 import "./CrossDaoCommon.sol";
+import "./IDaoSetting.sol";
 
-contract CrossMultiSignDao is AdminControlledUpgradeable{
+/** 
+ * kind id = 0 means governor proposal
+ * kind id = 1 means amend proposal
+ * other is reserved */
+contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgradeable{
     using Counters       for Counters.Counter;
     using Timers         for Timers.Timestamp;
     using SafeCast       for uint256;
@@ -30,7 +36,7 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
     }
 
     struct ProposalDetails {
-        uint8                       proposalType;
+        uint8                       kindId;
         address                     proposer;
         uint256                     toChainID;
         bytes                       proposal;
@@ -42,32 +48,33 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
     }
 
     // proposal detail
-    mapping(uint256 => ProposalDetails) private _proposalDetails;
+    mapping(uint256 => ProposalDetails)  private _proposalDetails;
     // proposal vote info
-    mapping(uint256 => ProposalCore)    private _proposals;
+    mapping(uint256 => ProposalCore)     private _proposals;
     // the smallest unused nonce of chain
     mapping(uint256 => Counters.Counter) private _nonces;
     // the term of voter
     Counters.Counter                     private currentTerm;
     IVotes                               private token;
-    uint256                              private votingDelay;
+    uint256                              private delay;
     uint256                              private currentProposalId;
-    uint256                              private percent;
+    uint256                              private ratio;//
 
     modifier onlyGovernance() {
-        require(msg.sender == _executor(), "Governor: onlyGovernance");
+        require(msg.sender == _executor(), "onlyGovernance");
         _;
     }
 
-    constructor(IVotes _tokenAddress, uint256 _votingDelay, address _owner, uint256 _percent) initializer {
-        require(_percent <= 100 && _percent > 0, "invalid percent");
-        require(votingDelay >= 10 minutes, "invalid vote delay");
+    constructor(IVotes _tokenAddress, uint256 _votingDelay, address _owner, uint256 _ratio) initializer {
+        require(_ratio <= 100 && _ratio > 0, "invalid percent");
+        require(_votingDelay >= 10 minutes, "invalid vote delay");
 
         token = _tokenAddress;
         _nonces[block.chainid] = Counters.Counter(1);
+        _nonces[type(uint256).max] = Counters.Counter(1);
         currentTerm = Counters.Counter(1);
-        votingDelay = _votingDelay;
-        percent = _percent;
+        delay = _votingDelay;
+        ratio = _ratio;
 
         _setRoleAdmin(CONTROLLED_ROLE, OWNER_ROLE);
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
@@ -76,21 +83,97 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
         _grantRole(ADMIN_ROLE, _msgSender());
 
         _AdminControlledUpgradeable_init(_msgSender(), 0);
-
     }
 
-    /* */
-    function bindNeighborChains(uint256[] calldata chainIDs) external onlyRole(ADMIN_ROLE) {
-        for (uint256 i = 0; i < chainIDs.length; i++) {
-            require(_nonces[chainIDs[i]].current() == 0, "invalid nonce");
-            _nonces[chainIDs[i]] = Counters.Counter(1);
+    function changeVoters(
+        address[] calldata _newVoters,
+        uint256 _newTerm
+    ) public override onlyGovernance {
+        require(_newTerm - term() == 1, "dependent term is invalid");
+        string memory errorMessage = "fail to change voter";
+        (bool success, bytes memory returnData) = address(token).call(abi.encodeWithSignature("changeVoters(address[])", _newVoters));
+        Address.verifyCallResult(success, returnData, errorMessage);
+        currentTerm.increment();
+    }
+
+    function updateVotingRatio(
+        uint256 _ratio
+    ) public override onlyGovernance {
+        if(_ratio <= 100 && _ratio > 0) {
+            emit VotingRatioChanged(ratio, _ratio);
+            ratio = _ratio;
         }
     }
 
-    function setVotingDelay(uint256 _votingDelay) external onlyRole(ADMIN_ROLE) {
+    function votingRatio() public view override returns(uint256) {
+        return ratio;
+    }
+
+    function setVotingDelay(
+        uint256 _votingDelay
+    ) public override onlyGovernance {
         if (_votingDelay >= 10 minutes) {
-            votingDelay = _votingDelay;
+            emit VotingDelayChanged(delay, _votingDelay);
+            delay = _votingDelay;
         }
+    }
+
+    function votingDelay() external view override returns(uint256) {
+        return delay;
+    }
+
+    function bindNeighborChains(
+        uint256[] calldata chainIDs
+    ) public override onlyGovernance {
+        for (uint256 i = 0; i < chainIDs.length; i++) {
+            if (_nonces[chainIDs[i]].current() == 0) {
+                _nonces[chainIDs[i]] = Counters.Counter(1);
+                emit NeighborChainBound(chainIDs[i]);
+            }
+        }
+    }
+
+    function propose(
+        uint256            fromChainID,
+        uint256            toChainID,
+        uint8              kindId,
+        uint256            voteTerm,
+        uint256            nonce,
+        bytes     calldata action,
+        bytes32            descriptionHash
+    ) external returns (uint256) {
+        require(idle(), "cross multisign is busy");
+
+        require(_getVotes(msg.sender) > 0, "proposer must be voter");
+        _checkCrossHeader(fromChainID, toChainID);
+        require(voteTerm == term(), "dependent term is invalid");
+        
+        if (kindId == 1) {
+            require(nonce < nonces(toChainID), "nonce is not be used");
+        } else {
+            require(nonce == nonces(toChainID), "nonce is invalid");
+        }
+
+        if (kindId == 0) {
+            require(toChainID == type(uint256).max, "only support broadcast");
+        } else {
+            require(toChainID != type(uint256).max, "only support unicast");
+        }
+
+        bytes memory proposalInfo = CrossDaoCommon.encodeCrossDaoTx(kindId, fromChainID, 
+                        toChainID, voteTerm, nonce, action, descriptionHash);
+        uint256 proposalID = uint256(keccak256(proposalInfo));
+
+        ProposalDetails storage detail = _proposalDetails[proposalID];
+        require(detail.proposer == address(0), "proposal id is existed");
+
+        detail.proposer = msg.sender;
+        detail.proposal = proposalInfo;
+        detail.kindId = kindId;
+        detail.toChainID = toChainID;
+        _propose(proposalID);
+        emit CrossDaoCommon.CrossDaoProposalCreated(proposalID, msg.sender, kindId, proposalInfo);
+        return proposalID;
     }
 
     /**
@@ -118,98 +201,6 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
 
         return false;
     }
-
-    function proposeGovernance(
-        uint256            fromChainID,
-        uint256            toChainID,
-        uint256            voteTerm,
-        address[] calldata voters,
-        bytes32            descriptionHash
-    ) external returns (uint256) {
-        require(idle(), "cross multisign is busy");
-
-        require(_getVotes(msg.sender) > 0, "proposer must be voter");
-        _checkCrossHeader(fromChainID, toChainID);
-        require(voteTerm - term() == 1, "dependent term is invalid");
-
-        bytes memory proposalInfo = CrossDaoCommon.encodeCrossDaoGovernance(uint8(ProposalType.Governor), 
-                    fromChainID, toChainID, voteTerm, voters, descriptionHash);
-        uint256 proposalID = uint256(keccak256(proposalInfo));
-
-        ProposalDetails storage detail = _proposalDetails[proposalID];
-        require(detail.proposer == address(0), "proposal id is existed");
-
-        detail.proposer = msg.sender;
-        detail.proposal = proposalInfo;
-        detail.proposalType = uint8(ProposalType.Governor);
-        detail.toChainID = toChainID;
-        _propose(proposalID);
-        emit CrossDaoCommon.CrossDaoProposalCreated(proposalID, msg.sender, uint8(ProposalType.Governor), proposalInfo);
-        return proposalID;
-    }
-
-    function propose(
-        uint256 fromChainID,
-        uint256 toChainID,
-        uint256 voteTerm,
-        uint256 nonce,
-        address remoteTarget,
-        bytes calldata action,
-        bytes32 descriptionHash
-    ) external returns (uint256){
-        require(idle(), "cross multisign is busy");
-        
-        require(_getVotes(msg.sender) > 0, "proposer must be voter");
-        _checkCrossHeader(fromChainID, toChainID);
-        require(voteTerm == term(), "dependent term is invalid");
-        require(nonce == nonces(toChainID), "nonce is invalid");
-
-        bytes memory proposalInfo = CrossDaoCommon.encodeCrossDaoTx(uint8(ProposalType.Common), 
-                fromChainID, toChainID, voteTerm, nonce, remoteTarget, action, descriptionHash);
-        uint256 proposalID = uint256(keccak256(proposalInfo));
-
-        ProposalDetails storage detail = _proposalDetails[proposalID];
-        require(detail.proposer == address(0), "proposal id is existed");
-
-        detail.proposer = msg.sender;
-        detail.proposal = proposalInfo;
-        detail.proposalType = uint8(ProposalType.Common);
-        detail.toChainID = toChainID;
-        _propose(proposalID);
-        emit CrossDaoCommon.CrossDaoProposalCreated(proposalID, msg.sender, uint8(ProposalType.Governor), proposalInfo);
-        return proposalID;
-    }
-
-    function proposeAmendment(
-        uint256 fromChainID,
-        uint256 toChainID,
-        uint256 voteTerm,
-        uint256 nonce,
-        bytes32 descriptionHash
-    ) external returns (uint256) {
-        require(idle(), "cross multisign is busy");
-
-        require(_getVotes(msg.sender) > 0, "proposer must be voter");
-        _checkCrossHeader(fromChainID, toChainID);
-
-        require(voteTerm == term(), "dependent term is invalid");
-        require(nonce <= nonces(toChainID), "nonce is be used");
-
-        bytes memory proposalInfo = CrossDaoCommon.encodeCrossDaoAmendment(uint8(ProposalType.Amendment), 
-                    fromChainID, toChainID, voteTerm, nonce, descriptionHash);
-        uint256 proposalID = uint256(keccak256(proposalInfo));
-
-        ProposalDetails storage detail = _proposalDetails[proposalID];
-        require(detail.proposer == address(0), "proposal id is existed");
-
-        detail.proposer = msg.sender;
-        detail.proposal = proposalInfo;
-        detail.proposalType = uint8(ProposalType.Amendment);
-        detail.toChainID = toChainID;
-        _propose(proposalID);
-        emit CrossDaoCommon.CrossDaoProposalCreated(proposalID, msg.sender, uint8(ProposalType.Governor), proposalInfo);
-        return proposalID;
-    }
     
     function proposalDeadline(
         uint256 proposalId
@@ -229,24 +220,24 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
 
     function execute(
         uint256 proposalId
-    ) external {
+    ) external nonReentrant{
         ProposalState status = state(proposalId);
         require(status == ProposalState.Succeeded, "proposal not success");
-        _proposals[proposalId].executed = true; 
+        _proposals[proposalId].executed = true;
 
         ProposalDetails storage detail = _proposalDetails[proposalId];
-        if (detail.proposalType == uint8(ProposalType.Governor)) {
-            CrossDaoGovernance memory dao = detail.proposal.decodeCrossDaoGovernance();
-            string memory errorMessage = "fail to change voter";            
-            (bool success, bytes memory returnData) = address(token).call(abi.encodeWithSignature("changeVoters(address[])", dao.voters));
+        if (detail.kindId == 0) {
+            CrossDaoTx memory dao = detail.proposal.decodeCrossDaoTx();
+            string memory errorMessage = "fail to execute governor";            
+            (bool success, bytes memory returnData) = address(this).call(dao.action);
             Address.verifyCallResult(success, returnData, errorMessage);
+        }
 
-            currentTerm.increment();
-        } else {
+        if (detail.kindId != 1) {
             _nonces[detail.toChainID].increment();
         }
 
-        emit CrossDaoCommon.CrossDaoBridgeEvent(address(this), proposalId, detail.proposalType, detail.proposal, _encodeSignatures(detail.signatures));
+        emit CrossDaoCommon.CrossDaoBridgeEvent(address(this), proposalId, detail.kindId, detail.proposal, _encodeSignatures(detail.signatures));
     }
 
     function state(uint256 proposalId) public view virtual returns (ProposalState) {
@@ -286,7 +277,7 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
     }
 
     function quorum(uint256 blockNumber) public view virtual returns (uint256) {
-        return (token.getPastTotalSupply(blockNumber) * percent + 99) / 100;
+        return (token.getPastTotalSupply(blockNumber) * ratio + 99) / 100;
     }
 
     function _setCurrentProposalID(uint256 proposalId) internal {
@@ -312,7 +303,7 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
         require(proposal.voteEnd.isUnset(), "proposal already exists");
 
         _setCurrentProposalID(proposalID);
-        uint64 deadline = block.timestamp.toUint64() + votingDelay.toUint64();
+        uint64 deadline = block.timestamp.toUint64() + delay.toUint64();
         proposal.voteEnd.setDeadline(deadline);
         proposal.quorum = quorum(block.number);
         proposal.totalVotes = token.getPastTotalSupply(block.number);
@@ -387,6 +378,12 @@ contract CrossMultiSignDao is AdminControlledUpgradeable{
     function _encodeSignatures(Signature[] memory signs) internal view virtual returns (bytes[] memory _bytesSigns) {
         for (uint256 i = 0; i < signs.length; i++) {
             _bytesSigns[i] = abi.encodePacked(signs[i].r, signs[i].s, signs[i].v);
+        }
+    }
+
+    function _checkVoters(address[] calldata _voters) internal pure{
+        for (uint256 i = 0; i < _voters.length; i++) {
+            require(_voters[i] != address(0), "invalid voter");
         }
     }
 }
