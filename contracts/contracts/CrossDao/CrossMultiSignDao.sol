@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../common/AdminControlledUpgradeable.sol";
 import "./CrossDaoCommon.sol";
 import "./IDaoSetting.sol";
+import "hardhat/console.sol";
 
 /** 
  * kind id = 0 means governor proposal
@@ -65,9 +66,9 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         _;
     }
 
-    constructor(IVotes _tokenAddress, uint256 _votingDelay, address _owner, uint256 _ratio) initializer {
+    function initialize(IVotes _tokenAddress, uint256 _votingDelay, address _owner, uint256 _ratio) public initializer {
         require(_ratio <= 100 && _ratio > 0, "invalid percent");
-        require(_votingDelay >= 10 minutes, "invalid vote delay");
+        require(_votingDelay != 0, "invalid vote delay");
 
         token = _tokenAddress;
         _nonces[block.chainid] = Counters.Counter(1);
@@ -93,6 +94,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         string memory errorMessage = "fail to change voter";
         (bool success, bytes memory returnData) = address(token).call(abi.encodeWithSignature("changeVoters(address[])", _newVoters));
         Address.verifyCallResult(success, returnData, errorMessage);
+        console.logString("111111");
         currentTerm.increment();
     }
 
@@ -112,10 +114,12 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     function setVotingDelay(
         uint256 _votingDelay
     ) public override onlyGovernance {
-        if (_votingDelay >= 10 minutes) {
+        // if (_votingDelay >= 10 minutes) {
+        if (_votingDelay != 0) {
             emit VotingDelayChanged(delay, _votingDelay);
             delay = _votingDelay;
         }
+        // }
     }
 
     function votingDelay() external view override returns(uint256) {
@@ -285,7 +289,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     }
 
     function _getVotes(address account) internal view returns (uint256) {
-        return token.getPastVotes(account, block.number);
+        return token.getPastVotes(account, block.number - 1);
     }
 
     function _checkCrossHeader(
@@ -305,8 +309,8 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         _setCurrentProposalID(proposalID);
         uint64 deadline = block.timestamp.toUint64() + delay.toUint64();
         proposal.voteEnd.setDeadline(deadline);
-        proposal.quorum = quorum(block.number);
-        proposal.totalVotes = token.getPastTotalSupply(block.number);
+        proposal.quorum = quorum(block.number - 1);
+        proposal.totalVotes = token.getPastTotalSupply(block.number - 1);
     }
 
     function _executor() internal view virtual returns (address) {
@@ -322,11 +326,12 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     ) internal virtual returns (uint256) {
         require(state(proposalId) == ProposalState.Active, "vote is not active");
         address account = ECDSA.recover(
-            keccak256(abi.encode(address(this), proposalId, support)),
+            ECDSA.toEthSignedMessageHash(keccak256(abi.encode(address(this), proposalId, support))),
             v,
             r,
             s
         );
+        require(account != address(0), "invalid signer");
         uint256 weight = _getVotes(account);
         _countVote(proposalId, account, v, r, s, support, weight);
         emit CrossDaoCommon.CrossDaoVoteCast(account, proposalId, support, weight);
@@ -376,6 +381,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     }
 
     function _encodeSignatures(Signature[] memory signs) internal view virtual returns (bytes[] memory _bytesSigns) {
+        _bytesSigns = new bytes[](signs.length);
         for (uint256 i = 0; i < signs.length; i++) {
             _bytesSigns[i] = abi.encodePacked(signs[i].r, signs[i].s, signs[i].v);
         }

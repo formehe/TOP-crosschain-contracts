@@ -25,12 +25,6 @@ struct CrossDaoBridge{
     bytes[] signs;
 }
 
-enum ProposalType {
-    Governor,
-    Common,
-    Amendment
-}
-
 enum ProposalState {
     Pending,
     Active,

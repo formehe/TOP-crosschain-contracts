@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import "hardhat/console.sol";
 
 contract ScalableVotes is IVotes {
     event VoterAdded(
@@ -29,7 +30,7 @@ contract ScalableVotes is IVotes {
 
     constructor(address[] memory _voters, address _governor) {
         require(_voters.length >= 3, "number of voters must more than 3");
-        require(_governor.code.length > 0, "invalid governor");
+        require(_governor != address(0), "invalid governor");
         for (uint256 i = 0; i < _voters.length; i++) {
             require(_voters[i] != address(0), "invalid voter");
             require(checkpoints[_voters[i]] == 0, "voter can not be repeated");
@@ -38,17 +39,26 @@ contract ScalableVotes is IVotes {
         }
 
         totalSupplyCheckpoint = Checkpoint(block.number, _voters.length);
+        console.logUint(totalSupplyCheckpoint.votes);
         governor = _governor;
     }
 
     function getVotes(address account) override external view returns (uint256) {
-        return checkpoints[account];
+        if (checkpoints[account] != 0) {
+            return 1;
+        }
+
+        return 0;
     }
 
     function getPastVotes(address account, uint256 blockNumber) override external view returns (uint256) {
         require(blockNumber < block.number, "block not yet mined");
         require(checkpoints[account] <= blockNumber, "no vote"); 
-        return checkpoints[account];
+        if (checkpoints[account] != 0) {
+            return 1;
+        }
+
+        return 0;
     }
 
     function getPastTotalSupply(uint256 blockNumber) override external view returns (uint256) {
@@ -57,24 +67,28 @@ contract ScalableVotes is IVotes {
     }
 
     function changeVoters(address[] calldata _voters) external onlyGovernance {
-        for (uint256 i = 0; i < voters.length; i++) {
-            if (!_exist(voters[i], _voters)) {
+        address tempVoter;
+        for (uint256 i = 0; i < voters.length; ) {
+            tempVoter = voters[i];
+            if (!_exist(tempVoter, _voters)) {
                 voters[i] = voters[voters.length - 1];
                 voters.pop();
-                delete checkpoints[voters[i]];
-                emit VoterDeleted(voters[i]);
+                delete checkpoints[tempVoter];
+                totalSupplyCheckpoint.votes--;
+                emit VoterDeleted(tempVoter);
+            } else {
+                i++;
             }
         }
 
         for (uint256 i = 0; i < _voters.length; i++) {
-            if (checkpoints[_voters[i]] == 0) {
+            if ((checkpoints[_voters[i]] == 0) && (_voters[i] != address(0))) {
                 voters.push(_voters[i]);
                 checkpoints[_voters[i]] = block.number;
+                totalSupplyCheckpoint.votes++;
                 emit VoterAdded(_voters[i]);
             }
         }
-
-        totalSupplyCheckpoint.votes = voters.length;
     }
 
     function _exist(address _voter, address[] calldata _voters) internal pure returns(bool) {

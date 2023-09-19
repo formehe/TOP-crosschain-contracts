@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./CrossDaoCommon.sol";
 import "../common/Utils.sol";
+import "hardhat/console.sol";
 
 abstract contract ICrossGovernance{
     using CrossDaoCommon for bytes;
@@ -63,7 +64,7 @@ abstract contract ICrossGovernance{
         uint256 proposalID = uint256(keccak256(bridge.proposalInfo));
         require(proposalID == bridge.proposalID, "invalid proposal");
 
-        bytes32 signed = keccak256(abi.encode(bridge.from, proposalID, VoteType.For));
+        bytes32 signed = (keccak256(abi.encode(bridge.from, proposalID, VoteType.For))).toEthSignedMessageHash();
         require(_verify(signed, bridge.signs), "invalid signature");
         
         CrossDaoTx memory dao = bridge.proposalInfo.decodeCrossDaoTx();

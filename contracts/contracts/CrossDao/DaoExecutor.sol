@@ -39,7 +39,7 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
     function initialize(address[] calldata _voters, uint256 _peerChainID, address _peerDao, uint256 _ratio, address _admin) external initializer {
         require(_ratio <= 100 && _ratio > 0, "invalid percent");
         require(_admin != address(0), "invalid admin");
-        changeVoters(_voters, 1);
+        _changeVoters(_voters, 1);
 
         require(_peerDao != address(0), "invalid dao address");
         peerDao     = _peerDao;
@@ -96,12 +96,14 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
     }
 
     function changeVoters(address[] memory _voters, uint256 newTerm) public override onlyGovernance{
+        _changeVoters(_voters, newTerm);
+    }
+
+    function _changeVoters(address[] memory _voters, uint256 newTerm) internal{
         mapping(address => bool) storage termVoters = terms[newTerm];
         _changeTerm(newTerm);
-        numOfVoters = 1;
+        numOfVoters = 0;
         for (uint256 i = 0; i < _voters.length; i++) {
-            // require(_voters[i] != address(0), "invalid voter");
-            // require(!termVoters[_voters[i]], "voter is existed");
             if ((_voters[i] != address(0)) && (!termVoters[_voters[i]])) {
                 termVoters[_voters[i]] = true;
                 numOfVoters++;
@@ -141,7 +143,7 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
         uint256 kindId, 
         address token
     ) public override onlyGovernance{
-        if ((proposalProcessors[kindId] != address(0)) && (token.code.length > 0) && (token != address(this))) {
+        if ((proposalProcessors[kindId] == address(0)) && (token.code.length > 0)) {
             proposalProcessors[kindId] = token;
         }
     }
