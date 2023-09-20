@@ -11,11 +11,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../common/AdminControlledUpgradeable.sol";
 import "./CrossDaoCommon.sol";
 import "./IDaoSetting.sol";
-import "hardhat/console.sol";
 
 /** 
  * kind id = 0 means governor proposal
  * kind id = 1 means amend proposal
+ * kind id = 2 means bind propose processor
  * other is reserved */
 contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgradeable{
     using Counters       for Counters.Counter;
@@ -23,9 +23,12 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     using SafeCast       for uint256;
     using CrossDaoCommon for bytes;
 
+    event ProposalCanceled(uint256 proposalId);
+
     struct ProposalCore {
         Timers.Timestamp voteEnd;
         bool             executed;
+        bool             canceled;
         uint256          quorum;
         uint256          totalVotes;
     }
@@ -94,7 +97,6 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         string memory errorMessage = "fail to change voter";
         (bool success, bytes memory returnData) = address(token).call(abi.encodeWithSignature("changeVoters(address[])", _newVoters));
         Address.verifyCallResult(success, returnData, errorMessage);
-        console.logString("111111");
         currentTerm.increment();
     }
 
@@ -180,6 +182,17 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         return proposalID;
     }
 
+    function cancel(uint256 proposalId) public {
+        ProposalDetails storage details = _proposalDetails[proposalId];
+
+        require(
+            _msgSender() == details.proposer || _getVotes(_msgSender()) > 0,
+            "proposer above threshold"
+        );
+
+        _cancel(proposalId);
+    }
+
     /**
      * @dev Returns an chainID nonce.
      */
@@ -199,7 +212,8 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         ProposalState status = state(currentProposalId);
         if ((ProposalState.Defeated == status) || 
             (ProposalState.Executed == status) || 
-            (ProposalState.Expired == status)) {
+            (ProposalState.Expired == status) ||
+            (ProposalState.Canceled == status)) {
             return true;
         }
 
@@ -232,7 +246,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         ProposalDetails storage detail = _proposalDetails[proposalId];
         if (detail.kindId == 0) {
             CrossDaoTx memory dao = detail.proposal.decodeCrossDaoTx();
-            string memory errorMessage = "fail to execute governor";            
+            string memory errorMessage = "fail to execute governor";
             (bool success, bytes memory returnData) = address(this).call(dao.action);
             Address.verifyCallResult(success, returnData, errorMessage);
         }
@@ -249,6 +263,10 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
 
         if (proposal.executed) {
             return ProposalState.Executed;
+        }
+
+        if (proposal.canceled) {
+            return ProposalState.Canceled;
         }
 
         uint256 deadline = proposalDeadline(proposalId);
@@ -282,6 +300,23 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
 
     function quorum(uint256 blockNumber) public view virtual returns (uint256) {
         return (token.getPastTotalSupply(blockNumber) * ratio + 99) / 100;
+    }
+
+    function _cancel(
+        uint256 proposalId
+    ) internal virtual returns (uint256) {
+        ProposalState status = state(proposalId);
+
+        require(
+            status != ProposalState.Canceled && status != ProposalState.Expired && status != ProposalState.Executed,
+            "proposal not active"
+        );
+        
+        _proposals[proposalId].canceled = true;
+
+        emit ProposalCanceled(proposalId);
+
+        return proposalId;
     }
 
     function _setCurrentProposalID(uint256 proposalId) internal {
@@ -333,6 +368,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         );
         require(account != address(0), "invalid signer");
         uint256 weight = _getVotes(account);
+        require(weight != 0, "invalid voter");
         _countVote(proposalId, account, v, r, s, support, weight);
         emit CrossDaoCommon.CrossDaoVoteCast(account, proposalId, support, weight);
 
@@ -384,12 +420,6 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         _bytesSigns = new bytes[](signs.length);
         for (uint256 i = 0; i < signs.length; i++) {
             _bytesSigns[i] = abi.encodePacked(signs[i].r, signs[i].s, signs[i].v);
-        }
-    }
-
-    function _checkVoters(address[] calldata _voters) internal pure{
-        for (uint256 i = 0; i < _voters.length; i++) {
-            require(_voters[i] != address(0), "invalid voter");
         }
     }
 }

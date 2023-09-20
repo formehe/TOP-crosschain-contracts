@@ -50,6 +50,9 @@ describe("CrossDao", function () {
         console.log("+++++++++++++scalableVotes+++++++++++++++ ", scalableVotes.address)
 
         await crossMultiSignDao.initialize(scalableVotes.address, 7, owner.address, 50)
+        await expect(daoExecutor.initialize([user1.address, user2.address, user3.address], 31337, crossMultiSignDao.address, 0, admin.address)).to.be.revertedWith("invalid ratio")
+        await expect(daoExecutor.initialize([user1.address, user2.address, user3.address], 31337, crossMultiSignDao.address, 1, AddressZero)).to.be.revertedWith("invalid admin")
+        await expect(daoExecutor.initialize([user1.address, user2.address, user3.address], 31337, AddressZero, 1, admin.address)).to.be.revertedWith("invalid dao address")
         await daoExecutor.initialize([user1.address, user2.address, user3.address], 31337, crossMultiSignDao.address, 50, admin.address)
 
         erc20SampleCon = await ethers.getContractFactory("ERC20TokenSample", user)
@@ -58,7 +61,7 @@ describe("CrossDao", function () {
     })
 
     it('CrossDao', async () => {
-        let transferCalldata = crossMultiSignDao.interface.encodeFunctionData('setVotingDelay', [3])
+        let transferCalldata = crossMultiSignDao.interface.encodeFunctionData('setVotingDelay', [4])
         await expect(crossMultiSignDao.propose(1, 1, 0, 1, 1, transferCalldata, keccak256(Array.from(1)))).to.be.revertedWith("proposer must be voter")
         await expect(crossMultiSignDao.connect(user1).propose(1, 1, 0, 1, 1, transferCalldata, keccak256(transferCalldata))).to.be.revertedWith('from chainID must be my chainID')
         await expect(crossMultiSignDao.connect(user1).propose(31337, 31337, 0, 1, 1, transferCalldata, keccak256(transferCalldata))).to.be.revertedWith('only support broadcast')
@@ -100,17 +103,96 @@ describe("CrossDao", function () {
         signature = await user1.signMessage(ethers.utils.arrayify(hash32))
         await crossMultiSignDao.connect(user1).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
         
+        signature = await redeem.signMessage(ethers.utils.arrayify(hash32))
+        await expect(crossMultiSignDao.connect(redeem).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))).to.be.revertedWith('invalid voter')
         signature = await user2.signMessage(ethers.utils.arrayify(hash32))
         await crossMultiSignDao.connect(user2).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+ 
         tx = await crossMultiSignDao.execute(tx)
         rc = await tx.wait()
         calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[0].address, rc.events[0].topics, rc.events[0].data])
         await daoExecutor.connect(admin).execute(calldata)
         expect(await erc20Sample.balanceOf(admin.address)).to.be.equal(1000)
+
+        //change voter
+        transferCalldata = crossMultiSignDao.interface.encodeFunctionData('changeVoters', [[admin.address, miner.address, redeem.address], 1])
+        await expect(crossMultiSignDao.connect(user1).propose(31337, 31337, 0, 0, 2, transferCalldata, keccak256(transferCalldata))).to.be.revertedWith('dependent term is invalid')
+        await expect(crossMultiSignDao.connect(user1).propose(31337, 31337, 0, 1, 2, transferCalldata, keccak256(transferCalldata))).to.be.revertedWith('nonce is invalid')
+        await expect(crossMultiSignDao.connect(user1).propose(31337, 31337, 0, 1, 3, transferCalldata, keccak256(transferCalldata))).to.be.revertedWith('only support broadcast')
+        
+        tx = await crossMultiSignDao.connect(user1).callStatic["propose(uint256,uint256,uint8,uint256,uint256,bytes,bytes32)"](31337, MaxUint256, 0, 1, 2, transferCalldata, keccak256(transferCalldata))
+        await crossMultiSignDao.connect(user1).propose(31337, MaxUint256, 0, 1, 2, transferCalldata, keccak256(transferCalldata))
+        await expect(crossMultiSignDao.connect(user1).propose(31337, MaxUint256, 0, 1, 2, transferCalldata, keccak256(transferCalldata))).to.be.revertedWith('cross multisign is busy')
+        hash32 = keccak256(Web3EthAbi.encodeParameters(['address', 'uint256', 'uint8'], [crossMultiSignDao.address, tx, 1]))
+        signature = await user1.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(user1).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        signature = await user2.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(user2).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+ 
+        await expect(crossMultiSignDao.execute(tx)).to.be.revertedWith('dependent term is invalid')
+        await expect(crossMultiSignDao.connect(redeem).cancel(tx)).to.be.revertedWith('proposer above threshold')
+        await crossMultiSignDao.connect(user2).cancel(tx)
+
+        transferCalldata = crossMultiSignDao.interface.encodeFunctionData('changeVoters', [[admin.address, miner.address, redeem.address], 2])
+        tx = await crossMultiSignDao.connect(user1).callStatic["propose(uint256,uint256,uint8,uint256,uint256,bytes,bytes32)"](31337, MaxUint256, 0, 1, 2, transferCalldata, keccak256(transferCalldata))
+        await crossMultiSignDao.connect(user1).propose(31337, MaxUint256, 0, 1, 2, transferCalldata, keccak256(transferCalldata))
+        hash32 = keccak256(Web3EthAbi.encodeParameters(['address', 'uint256', 'uint8'], [crossMultiSignDao.address, tx, 1]))
+        signature = await user1.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(user1).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        signature = await user2.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(user2).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        tx = await crossMultiSignDao.execute(tx)
+
+        rc = await tx.wait()
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[rc.events.length - 1].address, rc.events[rc.events.length - 1].topics, rc.events[rc.events.length - 1].data])
+        await daoExecutor.connect(admin).execute(calldata)
+
+        //transfer
+        transferCalldata = erc20Sample.interface.encodeFunctionData('transfer', [admin.address, 1000])
+        tx = await crossMultiSignDao.connect(admin).callStatic["propose(uint256,uint256,uint8,uint256,uint256,bytes,bytes32)"](31337, 31337, 3, 2, 3, transferCalldata, keccak256(transferCalldata))
+        await expect(crossMultiSignDao.connect(admin).propose(31337, MaxUint256, 3, 2, 3, transferCalldata, keccak256(transferCalldata))).to.be.revertedWith('only support unicast')
+        await crossMultiSignDao.connect(admin).propose(31337, 31337, 3, 2, 3, transferCalldata, keccak256(transferCalldata))
+        hash32 = keccak256(Web3EthAbi.encodeParameters(['address', 'uint256', 'uint8'], [crossMultiSignDao.address, tx, 1]))
+        signature = await admin.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(admin).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        await expect(crossMultiSignDao.execute(tx)).to.be.revertedWith('proposal not success')
+        signature = await miner.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(miner).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+ 
+        tx = await crossMultiSignDao.execute(tx)
     })
 
     it('DaoExecutor', async () => {
-        await expect(scalableVotes.connect(user1).changeVoters([user1.address,user2.address])).to.be.revertedWith("Governor: onlyGovernance")
+        let transferCalldata = crossMultiSignDao.interface.encodeFunctionData('setVotingDelay', [3])
+        let tx = await crossMultiSignDao.connect(user1).callStatic["propose(uint256,uint256,uint8,uint256,uint256,bytes,bytes32)"](31337, MaxUint256, 0, 1, 1, transferCalldata, keccak256(transferCalldata))
+        await crossMultiSignDao.connect(user1).propose(31337, MaxUint256, 0, 1, 1, transferCalldata, keccak256(transferCalldata))
+        hash32 = keccak256(Web3EthAbi.encodeParameters(['address', 'uint256', 'uint8'], [crossMultiSignDao.address, tx, 1]))
+        let signature = await user1.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(user1).castVoteBySig(tx, 1, "0x" + signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        signature = await user2.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(user2).castVoteBySig(tx, 1, "0x" + signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        tx = await crossMultiSignDao.execute(tx)
+        rc = await tx.wait()
+        console.log(rc)
+        let calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[0].address, rc.events[0].topics, rc.events[0].data])
+        await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid topic')
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [admin.address, rc.events[1].topics, rc.events[1].data])
+        await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid from contract')
+        
+        let a = rc.events[1].data.substring(0, 388) + '1' + rc.events[1].data.substring(389)
+
+        console.log(rc.events[1].data)
+        console.log(a)
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[1].address, rc.events[1].topics, a])
+        await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid proposal')
+
+        a = rc.events[1].data.substring(0, 1290) + '1' + rc.events[1].data.substring(1291)
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[1].address, rc.events[1].topics, a])
+        // await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid voter')
+
+        a = rc.events[1].data.substring(0, 192) + '1' + rc.events[1].data.substring(193)
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[1].address, rc.events[1].topics, a])
+        await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid governor type')
     })
 
     it('ScalableVote', async () => {
@@ -118,6 +200,7 @@ describe("CrossDao", function () {
         await expect(scalableVotesCon.deploy([user1.address, AddressZero, user3.address], admin.address)).to.be.revertedWith('invalid voter')
         await expect(scalableVotesCon.deploy([user1.address, user1.address, user3.address], admin.address)).to.be.revertedWith('voter can not be repeated')
         await expect(scalableVotesCon.deploy([user1.address, user1.address, user3.address], AddressZero)).to.be.revertedWith('invalid governor')
+        
         scalableVotes1 = await scalableVotesCon.deploy([user1.address, user2.address, user3.address], admin.address)
         await scalableVotes1.deployed()
         let tx = await scalableVotes1.connect(admin).changeVoters([user1.address, AddressZero, user1.address, user3.address, redeem.address, admin.address])

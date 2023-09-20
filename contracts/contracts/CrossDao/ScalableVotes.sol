@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import "hardhat/console.sol";
 
 contract ScalableVotes is IVotes {
     event VoterAdded(
@@ -39,7 +38,6 @@ contract ScalableVotes is IVotes {
         }
 
         totalSupplyCheckpoint = Checkpoint(block.number, _voters.length);
-        console.logUint(totalSupplyCheckpoint.votes);
         governor = _governor;
     }
 

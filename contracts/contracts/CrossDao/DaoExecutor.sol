@@ -37,7 +37,7 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
     }
     
     function initialize(address[] calldata _voters, uint256 _peerChainID, address _peerDao, uint256 _ratio, address _admin) external initializer {
-        require(_ratio <= 100 && _ratio > 0, "invalid percent");
+        require(_ratio <= 100 && _ratio > 0, "invalid ratio");
         require(_admin != address(0), "invalid admin");
         _changeVoters(_voters, 1);
 
@@ -143,6 +143,7 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
         uint256 kindId, 
         address token
     ) public override onlyGovernance{
+        require(kindId > 2, "invalid kind id");
         if ((proposalProcessors[kindId] == address(0)) && (token.code.length > 0)) {
             proposalProcessors[kindId] = token;
         }

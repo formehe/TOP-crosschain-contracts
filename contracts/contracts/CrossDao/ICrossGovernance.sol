@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./CrossDaoCommon.sol";
 import "../common/Utils.sol";
-import "hardhat/console.sol";
 
 abstract contract ICrossGovernance{
     using CrossDaoCommon for bytes;
@@ -93,6 +92,7 @@ abstract contract ICrossGovernance{
                 Address.verifyCallResult(success, returnData, errorMessage);
             }
         }
+
         emit ProposalExecuted(proposalID, bridge.proposalInfo);
     }
 }
