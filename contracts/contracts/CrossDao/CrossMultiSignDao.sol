@@ -70,7 +70,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     }
 
     function initialize(IVotes _tokenAddress, uint256 _votingDelay, address _owner, uint256 _ratio) public initializer {
-        require(_ratio <= 100 && _ratio > 0, "invalid percent");
+        require(_ratio <= 100 && _ratio > 0, "invalid ratio");
         require(_votingDelay != 0, "invalid vote delay");
 
         token = _tokenAddress;
@@ -101,12 +101,15 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     }
 
     function updateVotingRatio(
-        uint256 _ratio
+        uint256 _ratio,
+        uint256 _newTerm
     ) public override onlyGovernance {
+        require(_newTerm - term() == 1, "dependent term is invalid");
         if(_ratio <= 100 && _ratio > 0) {
-            emit VotingRatioChanged(ratio, _ratio);
+            emit VotingRatioChanged(term(), _newTerm, ratio);
             ratio = _ratio;
         }
+        currentTerm.increment();
     }
 
     function votingRatio() public view override returns(uint256) {
@@ -116,12 +119,10 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     function setVotingDelay(
         uint256 _votingDelay
     ) public override onlyGovernance {
-        // if (_votingDelay >= 10 minutes) {
         if (_votingDelay != 0) {
             emit VotingDelayChanged(delay, _votingDelay);
             delay = _votingDelay;
         }
-        // }
     }
 
     function votingDelay() external view override returns(uint256) {
@@ -324,7 +325,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     }
 
     function _getVotes(address account) internal view returns (uint256) {
-        return token.getPastVotes(account, block.number - 1);
+        return token.getPastVotes(account, block.number);
     }
 
     function _checkCrossHeader(
@@ -344,8 +345,8 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         _setCurrentProposalID(proposalID);
         uint64 deadline = block.timestamp.toUint64() + delay.toUint64();
         proposal.voteEnd.setDeadline(deadline);
-        proposal.quorum = quorum(block.number - 1);
-        proposal.totalVotes = token.getPastTotalSupply(block.number - 1);
+        proposal.quorum = quorum(block.number);
+        proposal.totalVotes = token.getPastTotalSupply(block.number);
     }
 
     function _executor() internal view virtual returns (address) {

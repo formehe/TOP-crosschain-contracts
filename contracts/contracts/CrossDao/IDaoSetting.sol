@@ -3,7 +3,8 @@ pragma solidity ^0.8.0;
 
 interface IDaoSetting {
     event VotingRatioChanged(
-        uint256 oldRatio,
+        uint256 newTerm,
+        uint256 electionTerm,
         uint256 newRatio
     );
 
@@ -23,7 +24,7 @@ interface IDaoSetting {
 
     function changeVoters(address[] calldata _newVoters, uint256 _newTerm) external;
     
-    function updateVotingRatio(uint256 _ratio) external;
+    function updateVotingRatio(uint256 _ratio, uint256 _newTerm) external;
     function votingRatio() external view returns(uint256);
     
     function setVotingDelay(uint256 _votingDelay) external;

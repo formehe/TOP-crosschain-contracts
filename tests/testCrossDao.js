@@ -144,8 +144,8 @@ describe("CrossDao", function () {
         tx = await crossMultiSignDao.execute(tx)
 
         rc = await tx.wait()
-        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[rc.events.length - 1].address, rc.events[rc.events.length - 1].topics, rc.events[rc.events.length - 1].data])
-        await daoExecutor.connect(admin).execute(calldata)
+        let calldata1 = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[rc.events.length - 1].address, rc.events[rc.events.length - 1].topics, rc.events[rc.events.length - 1].data])
+        // await daoExecutor.connect(admin).execute(calldata)
 
         //transfer
         transferCalldata = erc20Sample.interface.encodeFunctionData('transfer', [admin.address, 1000])
@@ -160,6 +160,11 @@ describe("CrossDao", function () {
         await crossMultiSignDao.connect(miner).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
  
         tx = await crossMultiSignDao.execute(tx)
+        rc = await tx.wait()
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[rc.events.length - 1].address, rc.events[rc.events.length - 1].topics, rc.events[rc.events.length - 1].data])
+        await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid voter')
+        await daoExecutor.connect(admin).execute(calldata1)
+        await daoExecutor.connect(admin).execute(calldata)
     })
 
     it('DaoExecutor', async () => {
@@ -173,7 +178,7 @@ describe("CrossDao", function () {
         await crossMultiSignDao.connect(user2).castVoteBySig(tx, 1, "0x" + signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
         tx = await crossMultiSignDao.execute(tx)
         rc = await tx.wait()
-        console.log(rc)
+
         let calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[0].address, rc.events[0].topics, rc.events[0].data])
         await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid topic')
         calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [admin.address, rc.events[1].topics, rc.events[1].data])
@@ -181,8 +186,6 @@ describe("CrossDao", function () {
         
         let a = rc.events[1].data.substring(0, 388) + '1' + rc.events[1].data.substring(389)
 
-        console.log(rc.events[1].data)
-        console.log(a)
         calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[1].address, rc.events[1].topics, a])
         await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid proposal')
 

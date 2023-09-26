@@ -50,7 +50,7 @@ contract ScalableVotes is IVotes {
     }
 
     function getPastVotes(address account, uint256 blockNumber) override external view returns (uint256) {
-        require(blockNumber < block.number, "block not yet mined");
+        require(blockNumber <= block.number, "block not yet mined");
         require(checkpoints[account] <= blockNumber, "no vote"); 
         if (checkpoints[account] != 0) {
             return 1;
@@ -60,7 +60,7 @@ contract ScalableVotes is IVotes {
     }
 
     function getPastTotalSupply(uint256 blockNumber) override external view returns (uint256) {
-        require(blockNumber < block.number, "block not yet mined");
+        require(blockNumber <= block.number, "block not yet mined");
         return totalSupplyCheckpoint.votes;
     }
 

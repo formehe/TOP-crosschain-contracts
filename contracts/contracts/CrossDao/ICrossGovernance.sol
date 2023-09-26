@@ -19,16 +19,16 @@ abstract contract ICrossGovernance{
         (contractAddress, topics, action) = abi.decode(log, (address,bytes32[],bytes));
     }
 
-    function _verify(bytes32 hash, bytes[] memory signs) internal view returns(bool) {
+    function _verify(uint256 term, bytes32 hash, bytes[] memory signs) internal view returns(bool) {
         uint256 count;
         for (uint256 i = 0; i < signs.length; i++) {
             (address _signer, ) = hash.tryRecover(signs[i]);
             require(_signer != address(0), "invalid signer");
-            require(isVoterExist(_signer), "invalid voter");
+            require(isVoterExist(term, _signer), "invalid voter");
             count++;
         }
 
-        if (count < _quorum()) {
+        if (count < _quorum(term)) {
             return false;
         }
 
@@ -41,13 +41,13 @@ abstract contract ICrossGovernance{
     
     function _changeTerm(uint256 newTerm) internal virtual;
     
-    function _quorum() internal view virtual returns (uint256);
+    function _quorum(uint256 _term) internal view virtual returns (uint256);
     
     function _executor() internal view virtual returns (address);
 
     function _isAdmin() internal view virtual returns (bool);
     
-    function isVoterExist(address voter) public view virtual returns (bool);
+    function isVoterExist(uint256 term, address voter) public view virtual returns (bool);
     
     function proposalProcessor(uint256 kindId) public virtual returns(address);
 
@@ -62,12 +62,11 @@ abstract contract ICrossGovernance{
         require(bridge.from == contractAddress, "invalid from contract");
         uint256 proposalID = uint256(keccak256(bridge.proposalInfo));
         require(proposalID == bridge.proposalID, "invalid proposal");
-
-        bytes32 signed = (keccak256(abi.encode(bridge.from, proposalID, VoteType.For))).toEthSignedMessageHash();
-        require(_verify(signed, bridge.signs), "invalid signature");
         
         CrossDaoTx memory dao = bridge.proposalInfo.decodeCrossDaoTx();
-        require(dao.kindId == bridge.kindId, "invalid governor type");
+        require(dao.kindId == bridge.kindId, "invalid governor type");        
+        bytes32 signed = (keccak256(abi.encode(bridge.from, proposalID, VoteType.For))).toEthSignedMessageHash();
+        require(_verify(dao.termID, signed, bridge.signs), "invalid signature");
         _checkCrossDaoHeader(dao.fromChainID, dao.toChainID, bridge.from);
 
         _changeNonce(dao.toChainID, dao.nonce, dao.termID);
