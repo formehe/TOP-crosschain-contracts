@@ -62,7 +62,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     IVotes                               private token;
     uint256                              private delay;
     uint256                              private currentProposalId;
-    uint256                              private ratio;//
+    uint256                              private ratio;
 
     modifier onlyGovernance() {
         require(msg.sender == _executor(), "onlyGovernance");
@@ -194,9 +194,6 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         _cancel(proposalId);
     }
 
-    /**
-     * @dev Returns an chainID nonce.
-     */
     function nonces(uint256 chainID) public view  returns (uint256) {
         return _nonces[chainID].current();
     }
