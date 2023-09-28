@@ -210,7 +210,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         ProposalState status = state(currentProposalId);
         if ((ProposalState.Defeated == status) || 
             (ProposalState.Executed == status) || 
-            (ProposalState.Expired == status) ||
+            (ProposalState.Expired  == status) ||
             (ProposalState.Canceled == status)) {
             return true;
         }

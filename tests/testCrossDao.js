@@ -174,6 +174,48 @@ describe("CrossDao", function () {
         await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('invalid voter')
         await daoExecutor.connect(admin).execute(calldata1)
         await daoExecutor.connect(admin).execute(calldata)
+
+        transferCalldata = erc20Sample.interface.encodeFunctionData('transferFrom', [redeem.address, admin.address, 1000])
+        tx = await crossMultiSignDao.connect(admin).callStatic["propose(uint256,uint256,uint8,uint256,uint256,bytes,bytes32)"](31337, 31337, 3, 2, 4, transferCalldata, keccak256(transferCalldata))
+        await crossMultiSignDao.connect(admin).propose(31337, 31337, 3, 2, 4, transferCalldata, keccak256(transferCalldata))
+                
+        hash32 = keccak256(Web3EthAbi.encodeParameters(['address', 'uint256', 'uint8'], [crossMultiSignDao.address, tx, 1]))
+        signature = await admin.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(admin).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        signature = await miner.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(miner).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        tx = await crossMultiSignDao.execute(tx)
+        rc = await tx.wait()
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[rc.events.length - 1].address, rc.events[rc.events.length - 1].topics, rc.events[rc.events.length - 1].data])
+        await expect(daoExecutor.connect(admin).execute(calldata)).to.be.revertedWith('ERC20: insufficient allowance')
+
+        transferCalldata = erc20Sample.interface.encodeFunctionData('transferFrom', [redeem.address, admin.address, 1000])
+        tx = await crossMultiSignDao.connect(admin).callStatic["propose(uint256,uint256,uint8,uint256,uint256,bytes,bytes32)"](31337, 31337, 1, 2, 4, transferCalldata, keccak256(transferCalldata))
+        await crossMultiSignDao.connect(admin).propose(31337, 31337, 1, 2, 4, transferCalldata, keccak256(transferCalldata))
+
+        hash32 = keccak256(Web3EthAbi.encodeParameters(['address', 'uint256', 'uint8'], [crossMultiSignDao.address, tx, 1]))
+        signature = await admin.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(admin).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        signature = await miner.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(miner).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        tx = await crossMultiSignDao.execute(tx)
+        rc = await tx.wait()
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[rc.events.length - 1].address, rc.events[rc.events.length - 1].topics, rc.events[rc.events.length - 1].data])
+        await daoExecutor.connect(admin).execute(calldata)
+
+        transferCalldata = erc20Sample.interface.encodeFunctionData('transfer', [redeem.address, 1000])
+        tx = await crossMultiSignDao.connect(admin).callStatic["propose(uint256,uint256,uint8,uint256,uint256,bytes,bytes32)"](31337, 31337, 3, 2, 5, transferCalldata, keccak256(transferCalldata))
+        await crossMultiSignDao.connect(admin).propose(31337, 31337, 3, 2, 5, transferCalldata, keccak256(transferCalldata))
+                
+        hash32 = keccak256(Web3EthAbi.encodeParameters(['address', 'uint256', 'uint8'], [crossMultiSignDao.address, tx, 1]))
+        signature = await admin.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(admin).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        signature = await miner.signMessage(ethers.utils.arrayify(hash32))
+        await crossMultiSignDao.connect(miner).castVoteBySig(tx, 1, "0x"+ signature.toString(16).substr(130,2), "0x" + signature.toString(16).substr(2,64), "0x" + signature.toString(16).substr(66,64))
+        tx = await crossMultiSignDao.execute(tx)
+        rc = await tx.wait()
+        calldata = await Web3EthAbi.encodeParameters(['address', 'bytes32[]', 'bytes'], [rc.events[rc.events.length - 1].address, rc.events[rc.events.length - 1].topics, rc.events[rc.events.length - 1].data])
+        await daoExecutor.connect(admin).execute(calldata)
     })
 
     it('DaoExecutor', async () => {
