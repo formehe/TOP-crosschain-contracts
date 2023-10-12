@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../common/AdminControlledUpgradeable.sol";
 import "./CrossDaoCommon.sol";
 import "./IDaoSetting.sol";
+import "../common/Utils.sol";
 
 /** 
  * kind id = 0 means governor proposal
@@ -156,7 +157,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         require(voteTerm == term(), "dependent term is invalid");
         
         if (kindId == 1) {
-            require(nonce < nonces(toChainID), "nonce is not be used");
+            require((toChainID != type(uint256).max) && (nonce < nonces(toChainID)), "nonce is not be used");
         } else {
             require(nonce == nonces(toChainID), "nonce is invalid");
         }
@@ -244,9 +245,15 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         ProposalDetails storage detail = _proposalDetails[proposalId];
         if (detail.kindId == 0) {
             CrossDaoTx memory dao = detail.proposal.decodeCrossDaoTx();
-            string memory errorMessage = "fail to execute governor";
-            (bool success, bytes memory returnData) = address(this).call(dao.action);
-            Address.verifyCallResult(success, returnData, errorMessage);
+            bytes4 actionId = bytes4(Utils.bytesToBytes32(dao.action));
+            if (actionId == IDaoSetting.changeVoters.selector ||
+                actionId == IDaoSetting.updateVotingRatio.selector ||
+                actionId == IDaoSetting.setVotingDelay.selector ||
+                actionId == IDaoSetting.bindNeighborChains.selector) {
+                string memory errorMessage = "fail to execute governor";
+                (bool success, bytes memory returnData) = address(this).call(dao.action);
+                Address.verifyCallResult(success, returnData, errorMessage);
+            }
         }
 
         if (detail.kindId != 1) {

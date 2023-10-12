@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./CrossDaoCommon.sol";
 import "../common/Utils.sol";
+import "./IDaoSetting.sol";
 
 abstract contract ICrossGovernance{
     using CrossDaoCommon for bytes;
@@ -72,9 +73,15 @@ abstract contract ICrossGovernance{
         _changeNonce(dao.toChainID, dao.nonce, dao.termID);
         if (bridge.kindId == 0) {
             require(_isAdmin(), "not admin");
-            string memory errorMessage = "fail to execute governor";
-            (bool success, bytes memory returnData) = address(this).call(dao.action);
-            Address.verifyCallResult(success, returnData, errorMessage);
+            bytes4 actionId = bytes4(Utils.bytesToBytes32(dao.action));
+            if (actionId == IDaoSetting.changeVoters.selector ||
+                actionId == IDaoSetting.updateVotingRatio.selector ||
+                actionId == IDaoSetting.setVotingDelay.selector ||
+                actionId == IDaoSetting.bindNeighborChains.selector) {
+                string memory errorMessage = "fail to execute governor";
+                (bool success, bytes memory returnData) = address(this).call(dao.action);
+                Address.verifyCallResult(success, returnData, errorMessage);
+            }
         } else if (bridge.kindId == 1) {
         } else if (bridge.kindId == 2) {
             bytes4 actionId = bytes4(Utils.bytesToBytes32(dao.action));
@@ -84,7 +91,7 @@ abstract contract ICrossGovernance{
                 Address.verifyCallResult(success, returnData, errorMessage);
             }
         } else {
-            string memory errorMessage = "call reverted without message";
+            string memory errorMessage = "undercall reverted without message";
             address token = proposalProcessor(bridge.kindId);
             if (token.code.length > 0) {
                 (bool success, bytes memory returnData) = token.call(dao.action);
