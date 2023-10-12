@@ -58,7 +58,7 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
     }
 
     function isVoterExist(uint256 _term, address voter) public view override returns (bool) {
-        return terms[_term][voter];
+        return terms[ratios[_term].term][voter];
     }
 
     function nonces(uint256 chainID) public view  returns (uint256) {
@@ -164,7 +164,7 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
         uint256 _electionTerm
     ) internal {
         if(_ratio <= 100 && _ratio > 0) {
-            ratios[_newTerm] = RatioTerm(_ratio, _newTerm);
+            ratios[_newTerm] = RatioTerm(_ratio, _electionTerm);
             emit VotingRatioChanged(_newTerm, _electionTerm, _ratio);
         }
     }
