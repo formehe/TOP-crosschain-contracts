@@ -48,4 +48,8 @@ contract Rooms is ERC721{
         shareVaults[tokenID] = token;
         emit ShareVaultCreated(shareOwner, tokenID, shares);
     }
+
+    function setApprovalForAll(address /*operator*/, bool /*approved*/) public pure override {
+        require(false, "not support");
+    }
 }
