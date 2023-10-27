@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./Share.sol";
 
-contract Room is ERC721{
+contract Rooms is ERC721{
     using Clones for address;
     
     event ShareVaultCreated(address owner, uint256 tokenID, uint256 shares);
@@ -23,27 +23,29 @@ contract Room is ERC721{
         owner = owner_;
     }
 
-    function mint(address to, uint256 tokenID, uint256 shares) external {
+    function mint(address roomOwner, address shareOwner, uint256 tokenID, uint256 shares) external {
         require(msg.sender == owner, "No permit");
-        _mint(to, tokenID);
-        _buildShareVault(to, tokenID, shares);
+        require(shareOwner != address(0) && roomOwner != address(0), "Invalid room owner or share owner");
+        
+        _mint(roomOwner, tokenID);
+        _buildShareVault(shareOwner, tokenID, shares);
     }
 
     function shareVault(uint256 tokenID) public view returns (address){
         return shareVaults[tokenID];
     }
 
-    function _buildShareVault(address to, uint256 tokenID, uint256 shares) internal {
-        require(shareVaults[tokenID] != address(0), "Share vault already exist");
+    function _buildShareVault(address shareOwner, uint256 tokenID, uint256 shares) internal {
+        require(shareVaults[tokenID] == address(0), "Share vault already exist");
         
         address token = shareToken.clone();
         require(token != address(0), "Clone failed");
         
-        string memory errorMessage = "Underly call reverted without message"; 
-        (bool success, bytes memory returndata) = token.call(abi.encodeWithSignature("initialize(address,uint256)", to, shares));
+        string memory errorMessage = "Underly call reverted without message";
+        (bool success, bytes memory returndata) = token.call(abi.encodeWithSignature("initialize(address,uint256)", shareOwner, shares));
         Address.verifyCallResult(success, returndata, errorMessage);
         
         shareVaults[tokenID] = token;
-        emit ShareVaultCreated(to, tokenID, shares);
+        emit ShareVaultCreated(shareOwner, tokenID, shares);
     }
 }
