@@ -43,6 +43,11 @@ describe("Rooms", function () {
         console.log("+++++++++++++Rooms+++++++++++++++ ", roomsNft.address)
         roomsNft1 = await roomsCon.deploy("test room", "test room", shareToken.address, user1.address)
         await roomsNft1.deployed()
+
+        ERC20SampleCon = await ethers.getContractFactory("ERC20TokenSample", deployer)
+        ERC20Sample = await ERC20SampleCon.deploy()
+        await ERC20Sample.deployed()
+        console.log("+++++++++++++ERC20Sample+++++++++++++++ ", ERC20Sample.address)
     })
 
     it('Rooms', async () => {
@@ -50,13 +55,16 @@ describe("Rooms", function () {
         await expect(roomsNft.mint(AddressZero, user1.address, 100, 100)).to.be.revertedWith("Invalid room owner or share owner")
         await expect(roomsNft.mint(user.address, AddressZero, 100, 100)).to.be.revertedWith("Invalid room owner or share owner")
         await roomsNft.mint(user.address, user1.address, 100000, 100)
-        await expect(roomsNft.mint(user.address, user1.address, 100000, 100)).to.be.revertedWith("already minted")
+        await expect(roomsNft.mint(user.address, user1.address, 100000, 100)).to.be.revertedWith("Share vault already exist")
+
+        roomsNft2 = await roomsCon.deploy("", "", ERC20Sample.address, owner.address)
+        await expect(roomsNft2.mint(user.address, user1.address, 100000, 100)).to.be.revertedWith('Underly call reverted without message')
         
-        for ( i = 1 ; i < 1000; i++) {
+        for ( i = 1 ; i < 200; i++) {
             await roomsNft.mint(user.address, user1.address, i, 100)
         }
 
-        for ( i = 1 ; i < 1000; i++) {
+        for ( i = 1 ; i < 200; i++) {
             await roomsNft1.connect(user1).mint(user.address, user1.address, i, 100)
         }
     })

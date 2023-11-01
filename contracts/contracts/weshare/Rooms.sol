@@ -27,8 +27,8 @@ contract Rooms is ERC721{
         require(msg.sender == owner, "No permit");
         require(shareOwner != address(0) && roomOwner != address(0), "Invalid room owner or share owner");
         
-        _mint(roomOwner, tokenID);
         _buildShareVault(shareOwner, tokenID, shares);
+        _mint(roomOwner, tokenID);
     }
 
     function shareVault(uint256 tokenID) public view returns (address){
