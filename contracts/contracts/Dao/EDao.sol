@@ -48,8 +48,9 @@ contract EDao is GovernorCompatibilityBravo, GovernorVotes, GovernorVotesQuorumF
         maxVoteDelay = maxVoteDelay_;
         minVotePeriod = minVotePeriod_;
         maxVotePeriod = maxVotePeriod_;
-
-        _setRoleAdmin(CONTROLLED_ROLE, OWNER_ROLE);
+        
+        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
+        _setRoleAdmin(CONTROLLED_ROLE, ADMIN_ROLE);
         _setRoleAdmin(BLACK_ROLE, ADMIN_ROLE);
 
         _grantRole(OWNER_ROLE, owner_);
