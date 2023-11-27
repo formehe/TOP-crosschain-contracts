@@ -49,9 +49,9 @@ describe("CrossDao", function () {
         await scalableVotes.deployed()
         console.log("+++++++++++++scalableVotes+++++++++++++++ ", scalableVotes.address)
 
-        await expect(crossMultiSignDao.initialize(scalableVotes.address, 7, owner.address, 120)).to.be.revertedWith('invalid ratio')
-        await expect(crossMultiSignDao.initialize(scalableVotes.address, 0, owner.address, 50)).to.be.revertedWith('invalid vote delay')
-        await crossMultiSignDao.initialize(scalableVotes.address, 7, owner.address, 50)
+        await expect(crossMultiSignDao.initialize(scalableVotes.address, 7, 120)).to.be.revertedWith('invalid ratio')
+        await expect(crossMultiSignDao.initialize(scalableVotes.address, 0, 50)).to.be.revertedWith('invalid vote delay')
+        await crossMultiSignDao.initialize(scalableVotes.address, 7, 50)
         await expect(daoExecutor.initialize([user1.address, user2.address, user3.address], 31337, crossMultiSignDao.address, 0, admin.address)).to.be.revertedWith("invalid ratio")
         await expect(daoExecutor.initialize([user1.address, user2.address, user3.address], 31337, crossMultiSignDao.address, 1, AddressZero)).to.be.revertedWith("invalid admin")
         await expect(daoExecutor.initialize([user1.address, user2.address, user3.address], 31337, AddressZero, 1, admin.address)).to.be.revertedWith("invalid dao address")

@@ -109,7 +109,7 @@ contract DaoExecutor is IDaoSetting, ICrossGovernance, Initializable{
         mapping(address => bool) storage termVoters = terms[newTerm];
         _changeTerm(newTerm);
         numOfVoters = 0;
-        for (uint256 i = 0; i < _voters.length; i++) {
+        for (uint256 i = 0; i < _voters.length; ++i) {
             if ((_voters[i] != address(0)) && (!termVoters[_voters[i]])) {
                 termVoters[_voters[i]] = true;
                 numOfVoters++;

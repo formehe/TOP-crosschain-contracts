@@ -22,7 +22,7 @@ abstract contract ICrossGovernance{
 
     function _verify(uint256 term, bytes32 hash, bytes[] memory signs) internal view returns(bool) {
         uint256 count;
-        for (uint256 i = 0; i < signs.length; i++) {
+        for (uint256 i = 0; i < signs.length; ++i) {
             (address _signer, ) = hash.tryRecover(signs[i]);
             require(_signer != address(0), "invalid signer");
             require(isVoterExist(term, _signer), "invalid voter");
@@ -65,7 +65,7 @@ abstract contract ICrossGovernance{
         require(proposalID == bridge.proposalID, "invalid proposal");
         
         CrossDaoTx memory dao = bridge.proposalInfo.decodeCrossDaoTx();
-        require(dao.kindId == bridge.kindId, "invalid governor type");        
+        require(dao.kindId == bridge.kindId, "invalid governor type");
         bytes32 signed = (keccak256(abi.encode(bridge.from, proposalID, VoteType.For))).toEthSignedMessageHash();
         require(_verify(dao.termID, signed, bridge.signs), "invalid signature");
         _checkCrossDaoHeader(dao.fromChainID, dao.toChainID, bridge.from);

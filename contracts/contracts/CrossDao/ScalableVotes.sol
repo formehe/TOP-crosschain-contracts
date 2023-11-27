@@ -27,10 +27,10 @@ contract ScalableVotes is IVotes {
         _;
     }
 
-    constructor(address[] memory _voters, address _governor) {
+    constructor(address[] memory _voters, address _governor) payable {
         require(_voters.length >= 3, "number of voters must more than 3");
         require(_governor != address(0), "invalid governor");
-        for (uint256 i = 0; i < _voters.length; i++) {
+        for (uint256 i = 0; i < _voters.length; ++i) {
             require(_voters[i] != address(0), "invalid voter");
             require(checkpoints[_voters[i]] == 0, "voter can not be repeated");
             checkpoints[_voters[i]] = block.number;
@@ -75,11 +75,11 @@ contract ScalableVotes is IVotes {
                 totalSupplyCheckpoint.votes--;
                 emit VoterDeleted(tempVoter);
             } else {
-                i++;
+                ++i;
             }
         }
 
-        for (uint256 i = 0; i < _voters.length; i++) {
+        for (uint256 i = 0; i < _voters.length; ++i) {
             if ((checkpoints[_voters[i]] == 0) && (_voters[i] != address(0))) {
                 voters.push(_voters[i]);
                 checkpoints[_voters[i]] = block.number;
@@ -90,7 +90,7 @@ contract ScalableVotes is IVotes {
     }
 
     function _exist(address _voter, address[] calldata _voters) internal pure returns(bool) {
-        for (uint256 i = 0; i < _voters.length; i++) {
+        for (uint256 i = 0; i < _voters.length; ++i) {
             if (_voter == _voters[i]) {
                 return true;
             }

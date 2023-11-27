@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../common/AdminControlledUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./CrossDaoCommon.sol";
 import "./IDaoSetting.sol";
 import "../common/Utils.sol";
@@ -18,7 +18,7 @@ import "../common/Utils.sol";
  * kind id = 1 means amend proposal
  * kind id = 2 means bind propose processor
  * other is reserved */
-contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgradeable{
+contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, Initializable{
     using Counters       for Counters.Counter;
     using Timers         for Timers.Timestamp;
     using SafeCast       for uint256;
@@ -70,7 +70,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         _;
     }
 
-    function initialize(IVotes _tokenAddress, uint256 _votingDelay, address _owner, uint256 _ratio) public initializer {
+    function initialize(IVotes _tokenAddress, uint256 _votingDelay, uint256 _ratio) public initializer {
         require(_ratio <= 100 && _ratio > 0, "invalid ratio");
         require(_votingDelay != 0, "invalid vote delay");
 
@@ -80,14 +80,6 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         currentTerm = Counters.Counter(1);
         delay = _votingDelay;
         ratio = _ratio;
-
-        _setRoleAdmin(CONTROLLED_ROLE, OWNER_ROLE);
-        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
-
-        _grantRole(OWNER_ROLE, _owner);
-        _grantRole(ADMIN_ROLE, _msgSender());
-
-        _AdminControlledUpgradeable_init(_msgSender(), 0);
     }
 
     function changeVoters(
@@ -133,7 +125,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
     function bindNeighborChains(
         uint256[] calldata chainIDs
     ) public override onlyGovernance {
-        for (uint256 i = 0; i < chainIDs.length; i++) {
+        for (uint256 i = 0; i < chainIDs.length; ++i) {
             if (_nonces[chainIDs[i]].current() == 0) {
                 _nonces[chainIDs[i]] = Counters.Counter(1);
                 emit NeighborChainBound(chainIDs[i]);
@@ -188,7 +180,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
         ProposalDetails storage details = _proposalDetails[proposalId];
 
         require(
-            _msgSender() == details.proposer || _getVotes(_msgSender()) > 0,
+            msg.sender == details.proposer || _getVotes(msg.sender) > 0,
             "proposer above threshold"
         );
 
@@ -423,7 +415,7 @@ contract CrossMultiSignDao is IDaoSetting, ReentrancyGuard, AdminControlledUpgra
 
     function _encodeSignatures(Signature[] memory signs) internal view virtual returns (bytes[] memory _bytesSigns) {
         _bytesSigns = new bytes[](signs.length);
-        for (uint256 i = 0; i < signs.length; i++) {
+        for (uint256 i = 0; i < signs.length; ++i) {
             _bytesSigns[i] = abi.encodePacked(signs[i].r, signs[i].s, signs[i].v);
         }
     }
