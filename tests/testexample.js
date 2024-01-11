@@ -127,7 +127,7 @@ describe("ERC20MintProxy", function () {
         console.log("+++++++++++++EthProver+++++++++++++++ ", topProveContract.address)
         await topProveContract.deployed()
         await topProveContract._EthProver_initialize(headerMock.address)
-        await expect(topProveContract._EthProver_initialize(bridge.address)).to.be.revertedWith("Initializable: contract is already initialized")
+        await expect(topProveContract._EthProver_initialize(headerMock.address)).to.be.revertedWith("Initializable: contract is already initialized")
 
         //deploy mint contract
         try {
@@ -282,9 +282,14 @@ describe("ERC20MintProxy", function () {
         await tdao.connect(user)["execute(uint256)"](tx.toBigInt())
         // await mintContract.connect(admin).bindAssetHash(erc20Sample.address, zeroAccount)
     })
+    
+    it('set payee', async () => {
+        await transparentproxied.connect(admin).setPayee(user.address);
+        await expect(transparentproxied.connect(admin).setPayee(user.address)).to.be.revertedWith("feer has not beed setted");
+    })
 
     it('amount of burn cannot be zero', async () => {
-        await expect(transparentproxied.burn(erc20Sample.address, 0, address))
+        await expect(transparentproxied.burn(erc20Sample.address, 0, address, 0))
             .to.be.revertedWith('amount can not be 0')
     })
 
@@ -307,27 +312,29 @@ describe("ERC20MintProxy", function () {
 
     it('the asset contract of burn must be bound', async () => {
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample1.address, 1, 1000000000)
-        await expect(transparentproxied.burn(erc20Sample1.address, 2, address))
+        await expect(transparentproxied.burn(erc20Sample1.address, 2, address, 0))
             .to.be.revertedWith('asset address must has been bound')
     })
 
     it('the receiver of burn can not be zero', async () => {
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
-        await expect(transparentproxied.burn(erc20Sample1.address, 1, zeroAccount))
+        await expect(transparentproxied.burn(erc20Sample1.address, 1, zeroAccount, 0))
             .to.be.revertedWith('Transaction reverted without a reason string')
     })
 
     it('the owner must grant to mintContract enough allowance', async () => {
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
+        await transparentproxied.connect(admin).setPayee(user.address);
         await erc20Sample.connect(deployer).approve(transparentproxy.address, 1)
-        await expect(transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address))
+        await expect(transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address, 0))
             .to.be.revertedWith('ERC20: insufficient allowance')
     })
 
     it('burn of mintContract success', async () => {
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
+        await transparentproxied.connect(admin).setPayee(user.address);
         await erc20Sample.connect(deployer).approve(transparentproxy.address, 1000)
-        await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address)
+        await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address, 0)
     })
 
     it('burn success, the mint asset must be bound', async () => {
@@ -346,8 +353,9 @@ describe("ERC20MintProxy", function () {
         await new Promise(r => setTimeout(r, 1000));
         await tdao.connect(user)["execute(uint256)"](tx.toBigInt())
 
+        await transparentproxied.connect(admin).setPayee(user.address);
         await erc20Sample1.connect(deployer).approve(transparentproxy.address, 1000)
-        const txx = await transparentproxied.connect(deployer).burn(erc20Sample1.address, 10, address)
+        const txx = await transparentproxied.connect(deployer).burn(erc20Sample1.address, 10, address, 0)
         const rc = await txx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
 
@@ -375,7 +383,8 @@ describe("ERC20MintProxy", function () {
         //burn
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
         await erc20Sample.connect(deployer).approve(transparentproxy.address, 1000)
-        const tx = await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address)
+        await transparentproxied.connect(admin).setPayee(user.address);
+        const tx = await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address, 0)
         const rc = await tx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
         // construct receipt proof
@@ -401,8 +410,9 @@ describe("ERC20MintProxy", function () {
     it('burn success, repeat mint', async () => {
         //burn
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
+        await transparentproxied.connect(admin).setPayee(user.address);
         await erc20Sample.connect(deployer).approve(transparentproxy.address, 1000)
-        const tx = await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address)
+        const tx = await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address, 0)
         const rc = await tx.wait()
 
         const event = rc.events.find(event=>event.event === "Burned")
@@ -433,8 +443,9 @@ describe("ERC20MintProxy", function () {
     it('burn and mint success', async () => {
         //burn
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
+        await transparentproxied.connect(admin).setPayee(user.address);
         await erc20Sample.connect(deployer).approve(transparentproxy.address, 1000)
-        const tx = await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address)
+        const tx = await transparentproxied.connect(deployer).burn(erc20Sample.address, 10, address, 0)
         const rc = await tx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
 
@@ -486,7 +497,8 @@ describe("ERC20MintProxy", function () {
         await tdao.connect(user)["execute(uint256)"](txxx.toBigInt())
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
         await erc20Sample1.connect(deployer).approve(transparentproxy.address, 1000)
-        const tx = await transparentproxied.connect(deployer).burn(erc20Sample1.address, 10, address)
+        await transparentproxied.connect(admin).setPayee(user.address);
+        const tx = await transparentproxied.connect(deployer).burn(erc20Sample1.address, 10, address, 0)
         const rc = await tx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
 
@@ -637,7 +649,8 @@ describe("TRC20", function () {
 
         //burn
         await erc20Sample.connect(deployer).approve(mintContract.address, 1000)
-        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 1000, address)
+        await mintContract.connect(admin).setPayee(user.address)
+        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 1000, address, 0)
         const rc = await tx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
 
@@ -679,7 +692,8 @@ describe("TRC20", function () {
         // await mintContract.connect(admin).bindTransferedQuota(erc20Sample.address, 1, 1000000000)
 
         await erc20Sample.connect(deployer).approve(mintContract.address, 1000)
-        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, address)
+        await mintContract.connect(admin).setPayee(user.address)
+        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, address, 0)
         const rc = await tx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
         // construct receipt proof
@@ -721,7 +735,8 @@ describe("TRC20", function () {
 
         //burn
         await erc20Sample.connect(deployer).approve(mintContract.address, 1000)
-        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, user.address)
+        await mintContract.connect(admin).setPayee(user.address)
+        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, user.address, 0)
         const rc = await tx.wait()
 
         const event = rc.events.find(event=>event.event === "Burned")
@@ -766,7 +781,8 @@ describe("TRC20", function () {
 
         //burn
         await erc20Sample.connect(deployer).approve(mintContract.address, 1000)
-        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, user.address)
+        await mintContract.connect(admin).setPayee(user.address)
+        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, user.address, 0)
         const rc = await tx.wait()
 
         const event = rc.events.find(event=>event.event === "Burned")
@@ -814,7 +830,8 @@ describe("TRC20", function () {
 
         //burn
         await erc20Sample.connect(deployer).approve(mintContract.address, 1000)
-        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, user.address)
+        await mintContract.connect(admin).setPayee(user.address)
+        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 10, user.address, 0)
         const rc = await tx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
 
@@ -860,7 +877,8 @@ describe("TRC20", function () {
 
         //burn
         await erc20Sample.connect(deployer).approve(mintContract.address, 1000)
-        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 1000, user.address)
+        await mintContract.connect(admin).setPayee(user.address)
+        const tx = await mintContract.connect(deployer).burn(erc20Sample.address, 1000, user.address, 0)
         const rc = await tx.wait()
         const event = rc.events.find(event=>event.event === "Burned")
 

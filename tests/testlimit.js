@@ -168,4 +168,19 @@ describe("Limit", function () {
         await limitContract.connect(admin).forbiden("0x1111111111111111111111111111111111111111111111111111111111111111")
         await limitContract.connect(admin).forbiden("0x1111111111111111111111111111111111111111111111111111111111111112")
     })
+
+    it('bind tranfer fee', async () => {
+        await expect(limitContract.connect(admin).bindTransferFee(user.address, 3, 1, 100)).to.be.revertedWith("max transfered fee is less than the min");
+        await expect(limitContract.connect(admin).bindTransferFee(user.address, 1, 3, 1000)).to.be.revertedWith("ratio must less 1000");
+        await limitContract.connect(admin).bindTransferFee(owner.address, 0, 0, 0)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 100)).to.equal(0)
+        await limitContract.connect(admin).bindTransferFee(owner.address, 1, 100, 100)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 100)).to.equal(10)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 101)).to.equal(11)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 1)).to.equal(1)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 9)).to.equal(1)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 11)).to.equal(2)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 1001)).to.equal(100)
+        expect(await limitContract.connect(admin).getTransferFee(owner.address, 10000)).to.equal(100)
+    })
 })

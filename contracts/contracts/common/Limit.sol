@@ -20,10 +20,23 @@ contract Limit is Initializable, AccessControl{
         uint256 minTransferedToken;
     }
 
+    struct Fee{
+        uint256 minFee;
+        uint256 maxFee;
+        uint256 ratio;
+    }
+
     event TransferedQuotaBound (
         address indexed asset,
         uint256 minTransferedToken,
         uint256 maxTransferedToken
+    );
+
+    event TransferedFeeBound (
+        address indexed asset,
+        uint256 minFee,
+        uint256 maxFee,
+        uint256 ratio
     );
 
     event TxForbidden (
@@ -40,8 +53,9 @@ contract Limit is Initializable, AccessControl{
     );
 
     mapping(address => Quota) public tokenQuotas;
-    mapping(bytes32 => bool) public forbiddens;
-    mapping(address => uint) public tokenFrozens; // unit is seconds
+    mapping(bytes32 => bool)  public forbiddens;
+    mapping(address => uint)  public tokenFrozens; // unit is seconds
+    mapping(address => Fee)   public tokenFees;
     uint private constant MAX_FROZEN_TIME = 15_552_000; //180 days
 
     // constructor(address owner){
@@ -75,6 +89,42 @@ contract Limit is Initializable, AccessControl{
         tokenQuotas[_asset].maxTransferedToken = _maxTransferedToken;
         tokenQuotas[_asset].minTransferedToken = _minTransferedToken;
         emit TransferedQuotaBound(_asset, _minTransferedToken, _maxTransferedToken);
+    }
+
+    function bindTransferFee(
+        address _asset, 
+        uint256 _minFee, 
+        uint256 _maxFee,
+        uint256 _ratio
+    ) external onlyRole(ADMIN_ROLE) {
+        require(_maxFee >= _minFee, "max transfered fee is less than the min");
+        require(_ratio < 1000, "ratio must less 1000");
+        tokenFees[_asset].maxFee = _maxFee;
+        tokenFees[_asset].minFee = _minFee;
+        tokenFees[_asset].ratio = _ratio;
+        emit TransferedFeeBound(_asset, _minFee, _maxFee, _ratio);
+    }
+
+    function getTransferFee(
+        address _asset, 
+        uint256 _transferAmount
+    )external view returns(uint256) {
+        Fee memory fee = tokenFees[_asset];
+        uint256 currentFee;
+    
+        if (fee.ratio == 0) {
+            currentFee = 0;
+        } else {
+            currentFee = (_transferAmount * fee.ratio + 999) / 1000;
+        }
+
+        if (currentFee > fee.maxFee) {
+            currentFee = fee.maxFee;
+        } else if (currentFee < fee.minFee) {
+            currentFee = fee.minFee;
+        }
+
+        return currentFee;
     }
 
     function checkTransferedQuota(

@@ -17,6 +17,18 @@ contract ERC20MintProxy is VerifierUpgradeable {
         uint8   decimals
     );
 
+    event FeePayed (
+        address indexed fromToken,
+        address indexed toToken,
+        address indexed sender,
+        address payee,
+        uint256 fee
+    );
+
+    event PayeeSetted (
+        address payee
+    );
+
     event Minted (
         bytes32 proofIndex,
         uint256 amount,
@@ -47,6 +59,8 @@ contract ERC20MintProxy is VerifierUpgradeable {
     mapping(address => WithdrawHistory) public withdrawHistories;
 
     mapping(address => ProxiedAsset) public assets;
+    address public payee;
+    bool private payeeSetted;
 
     function initialize(
         IEthProver _prover,
@@ -155,19 +169,35 @@ contract ERC20MintProxy is VerifierUpgradeable {
 
     function burn(
         address localAssetHash, 
-        uint256 amount, 
-        address receiver
+        uint256 amount,
+        address receiver,
+        uint256 fee
     ) external burn_pauseable {
         require((Address.isContract(localAssetHash)) && (receiver != address(0)));
         
         uint256 transferAmount = amount;
         require(transferAmount != 0, "amount can not be 0");
         require(limiter.checkTransferedQuota(localAssetHash, transferAmount),"not in the amount range");
+        
         ProxiedAsset memory peerAsset = assets[localAssetHash];
         require(peerAsset.existed, "asset address must has been bound");
-        ERC20Mint(localAssetHash).burnFrom(msg.sender, transferAmount);
+        require(fee == limiter.getTransferFee(localAssetHash, transferAmount), "invalid fee");
         
+        if (payee != msg.sender) {    
+            ERC20Mint(localAssetHash).transferFrom(msg.sender, payee, fee);
+            emit FeePayed(localAssetHash, peerAsset.assetHash, msg.sender, payee, fee);
+        }
+
+        ERC20Mint(localAssetHash).burnFrom(msg.sender, transferAmount);
         uint8 decimal = IERC20Decimals(localAssetHash).decimals();
         emit Burned(localAssetHash, peerAsset.assetHash, msg.sender, transferAmount, receiver, decimal);
+    }
+
+    function setPayee(address _payee) external {
+        require(!payeeSetted, "feer has not beed setted");
+        require(_payee != address(0), "invalid payee");
+        payeeSetted = true;
+        payee = _payee;
+        emit PayeeSetted(_payee);
     }
 }

@@ -13,6 +13,10 @@ interface ILimit{
     ) external view returns(bool);
 
     function forbiddens(bytes32 proofIndex) external view returns(bool);
-
+    
+    function getTransferFee(
+        address _asset, 
+        uint256 _transferAmount
+    )external view returns(uint256);
 }
 
