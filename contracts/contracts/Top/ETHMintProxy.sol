@@ -7,7 +7,7 @@ import "../common/ERC20Mint.sol";
 import "./verify/VerifierUpgradeable.sol";
 // import "hardhat/console.sol";
 
-contract ERC20MintProxy is VerifierUpgradeable {
+contract ETHMintProxy is VerifierUpgradeable {
     event Burned (
         address indexed fromToken,
         address indexed toToken,
@@ -170,9 +170,8 @@ contract ERC20MintProxy is VerifierUpgradeable {
     function burn(
         address localAssetHash, 
         uint256 amount,
-        address receiver,
-        uint256 fee
-    ) external burn_pauseable {
+        address receiver
+    ) external burn_pauseable payable {
         require((Address.isContract(localAssetHash)) && (receiver != address(0)));
         
         uint256 transferAmount = amount;
@@ -181,11 +180,11 @@ contract ERC20MintProxy is VerifierUpgradeable {
         
         ProxiedAsset memory peerAsset = assets[localAssetHash];
         require(peerAsset.existed, "asset address must has been bound");
-        require(fee == limiter.getTransferFee(localAssetHash, transferAmount), "invalid fee");
+        require(msg.value == limiter.getTransferFee(localAssetHash, transferAmount), "invalid fee");
         
-        if (payee != msg.sender && fee != 0) {
-            ERC20Mint(localAssetHash).transferFrom(msg.sender, payee, fee);
-            emit FeePayed(localAssetHash, peerAsset.assetHash, msg.sender, payee, fee);
+        if (payee != msg.sender && msg.value != 0) {
+            payable(payee).transfer(msg.value);
+            emit FeePayed(localAssetHash, peerAsset.assetHash, msg.sender, payee, msg.value);
         }
 
         ERC20Mint(localAssetHash).burnFrom(msg.sender, transferAmount);
