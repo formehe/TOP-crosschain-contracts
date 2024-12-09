@@ -5,7 +5,7 @@ import "../common/AdminControlledUpgradeable.sol";
 import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 
-contract NodesGovernance is NodesRegistry{
+contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
     uint256 public detectDurationTime;
     uint256 public roundDurationTime;
 
@@ -46,7 +46,7 @@ contract NodesGovernance is NodesRegistry{
     mapping(uint256 => uint256) internal quotaPerPeriod;
 
     uint256 public currentDetectCircleId;
-    uint256 public currentDetectCricleStartTime;
+    uint256 public currentDetectCircleStartTime;
     uint256 public currentRoundId; // 当前轮次ID
     uint256 public currentRoundStartTime;
     uint256 public constant VALIDATOR_PER_VERIFIER = 5; // 每个被验证节点需要的验证节点数
@@ -56,19 +56,31 @@ contract NodesGovernance is NodesRegistry{
     event ValidationResult(uint256 roundId, address validator, bool result);
     event SettlementResult(NodeState[] states, uint256 totalQuota);
 
-    constructor(
-        address[]  memory  _identifiers, 
-        address[] memory _walletAccounts, 
-        uint256          _detectDurationTime,
-        uint256          _roundDuratimeTime,
-        address          _owner
-    ) NodesRegistry(_identifiers, _walletAccounts, _owner){
+    function nodesGovernance_initialize(
+        address[] calldata   _identifiers,
+        address[] calldata   _walletAccounts,
+        string[][]  calldata _gpuTypes,
+        uint256[][] calldata _gpuNums,
+        address              _allocator,
+        uint256             _detectDurationTime,
+        uint256             _roundDurationTime,
+        address             _owner
+    ) external initializer {
         require(_owner != address(0), "Invalid owner");
         require(_identifiers.length > MIN_VERIFIER, "Must larger than 5");
-        currentRoundStartTime = block.timestamp;
 
+        require(_owner != address(0), "Invalid owner");
+        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
+        _setRoleAdmin(CONTROLLED_ROLE, ADMIN_ROLE);
+
+        _grantRole(OWNER_ROLE, _owner);
+        _grantRole(ADMIN_ROLE, msg.sender);
+        AdminControlledUpgradeable._AdminControlledUpgradeable_init(msg.sender, 0xff);
+        NodesRegistry._nodesRegistry_initialize(_identifiers, _walletAccounts, _gpuTypes, _gpuNums, _allocator);
+
+        currentRoundStartTime = block.timestamp;
         detectDurationTime = _detectDurationTime;
-        roundDurationTime = _roundDuratimeTime;
+        roundDurationTime = _roundDurationTime;
     }
 
     function _pickVerifierValidators(
@@ -149,9 +161,9 @@ contract NodesGovernance is NodesRegistry{
 
         currentRoundId++;
         currentRoundStartTime = currentTime;
-        if ((currentTime - currentDetectCricleStartTime) > detectDurationTime) {
+        if ((currentTime - currentDetectCircleStartTime) > detectDurationTime) {
             currentDetectCircleId++;
-            currentDetectCricleStartTime = currentTime;
+            currentDetectCircleStartTime = currentTime;
             detectPeriods[currentDetectCircleId] = RoundRange(currentRoundId, currentRoundId, currentTime, currentTime);
         } else {
             detectPeriods[currentDetectCircleId].endId = currentRoundId;
@@ -220,15 +232,15 @@ contract NodesGovernance is NodesRegistry{
     }
 
     function settlementOnePeriod(
-        uint256 detectPeroidId
+        uint256 detectPeriodId
     ) public returns (NodeState[] memory states, uint256 totalQuotas) {
-        require(detectPeroidId < currentDetectCircleId, "Settlement for deteted period");
-        RoundRange storage range = detectPeriods[detectPeroidId];
+        require(detectPeriodId < currentDetectCircleId, "Settlement for detected period");
+        RoundRange storage range = detectPeriods[detectPeriodId];
 
         require(range.startId != 0, "Detect period id is not exist");
-        address[] storage nodes = nodesPerPeriod[detectPeroidId];
-        require(nodes.length == 0, "Period has been settelemented");
-        uint256 roundsInPeroid = range.endId - range.startId + 1;
+        address[] storage nodes = nodesPerPeriod[detectPeriodId];
+        require(nodes.length == 0, "Period has been settled");
+        uint256 roundsInPeriod = range.endId - range.startId + 1;
         uint256 noVotes;
         
         for (uint256 i = 0; i < length(); i++){
@@ -239,8 +251,8 @@ contract NodesGovernance is NodesRegistry{
             }
 
             nodes.push(identifier);
-            stateOfNodes[detectPeroidId][identifier] = NodeState(
-                0, 0, uint128(roundsInPeroid), wallet, identifier);
+            stateOfNodes[detectPeriodId][identifier] = NodeState(
+                0, 0, uint128(roundsInPeriod), wallet, identifier);
         }
 
         for (uint256 i = range.startId; i <= range.endId; i++) {
@@ -253,7 +265,7 @@ contract NodesGovernance is NodesRegistry{
                     continue;
                 }
 
-                NodeState storage state = stateOfNodes[detectPeroidId][verifier];
+                NodeState storage state = stateOfNodes[detectPeriodId][verifier];
 
                 if (!voted.completed) {
                     noVotes++;
@@ -271,13 +283,13 @@ contract NodesGovernance is NodesRegistry{
             }
         }
 
-        quotaPerPeriod[detectPeroidId] = totalQuotas;
+        quotaPerPeriod[detectPeriodId] = totalQuotas;
         states = new NodeState[](nodes.length);
         for (uint256 i = 0; i < nodes.length; i++){
             address identifier = nodes[i];
-            NodeState storage state = stateOfNodes[detectPeroidId][identifier];
+            NodeState storage state = stateOfNodes[detectPeriodId][identifier];
             if (state.identifier != address(0)) {
-                states[i] = stateOfNodes[detectPeroidId][identifier];
+                states[i] = stateOfNodes[detectPeriodId][identifier];
             }
         }
 
@@ -286,18 +298,18 @@ contract NodesGovernance is NodesRegistry{
     }
 
     function getOnePeriodSettlement(
-        uint256 detectPeroidId
+        uint256 detectPeriodId
     ) public view returns (NodeState[] memory states, uint256 totalQuotas) {
-        address[] storage nodes = nodesPerPeriod[detectPeroidId];
+        address[] storage nodes = nodesPerPeriod[detectPeriodId];
         states = new NodeState[](nodes.length);
         for (uint256 i = 0; i < nodes.length; i++){
             address identifier = nodes[i];
-            NodeState storage state = stateOfNodes[detectPeroidId][identifier];
+            NodeState storage state = stateOfNodes[detectPeriodId][identifier];
             if (state.identifier != address(0)) {
-                states[i] = stateOfNodes[detectPeroidId][identifier];
+                states[i] = stateOfNodes[detectPeriodId][identifier];
             }
         }
 
-        return (states, quotaPerPeriod[detectPeroidId]);
+        return (states, quotaPerPeriod[detectPeriodId]);
     }
 }

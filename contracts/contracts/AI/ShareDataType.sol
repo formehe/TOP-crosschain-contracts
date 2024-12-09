@@ -8,3 +8,9 @@ struct NodeState {
     address wallet;
     address identifier;
 }
+
+struct NodeComputeUsed {
+    address identifier;
+    string  gpuType;
+    uint256 used;
+}

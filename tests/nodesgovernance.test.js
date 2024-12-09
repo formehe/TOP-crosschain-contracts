@@ -15,20 +15,14 @@ describe("NodesGovernance Contract", function () {
         
         let IDENTIFIERS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
         let WALLETS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
-        
-        
-        // for (let j = 0; j < 210; j++) {
-        //     const wallet = Wallet.createRandom(); // 从第二个索引开始
-        //     IDENTIFIERS.push(wallet.address);
-        //     WALLETS.push(wallet.address);
-        // }
-
-        // console.log(IDENTIFIERS.length)
+        const gpuTypes = [["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"]];
+        const gpuNums = [[2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]];
 
         // 部署合约
         const NodesGovernanceFactory = await ethers.getContractFactory("NodesGovernance");
-        nodesGovernance = await NodesGovernanceFactory.deploy(IDENTIFIERS, WALLETS, DETECT_DURATION_TIME, ROUND_DURATION_TIME, owner.address);
+        nodesGovernance = await NodesGovernanceFactory.deploy();
         await nodesGovernance.deployed();
+        await nodesGovernance.nodesGovernance_initialize(IDENTIFIERS, WALLETS, gpuTypes, gpuNums, verifier.address, DETECT_DURATION_TIME, ROUND_DURATION_TIME, owner.address)
     });
 
     it("should start a new validation round", async function () {
@@ -124,7 +118,7 @@ describe("NodesGovernance Contract", function () {
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
 
-        await expect(nodesGovernance.settlementOnePeriod(100)).to.be.revertedWith("Settlement for deteted period");
+        await expect(nodesGovernance.settlementOnePeriod(100)).to.be.revertedWith("Settlement for detected period");
         await expect(nodesGovernance.settlementOnePeriod(0)).to.be.revertedWith("Detect period id is not exist");
         await nodesGovernance.settlementOnePeriod(detectPeriodId);
         const [states, totalQuotas] = await nodesGovernance.getOnePeriodSettlement(detectPeriodId);

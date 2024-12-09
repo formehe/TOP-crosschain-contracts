@@ -11,11 +11,14 @@ describe("NodesConstantReward", function () {
         [owner, addr1, addr2, addr3, addr4, addr5, addr6] = await ethers.getSigners();
         const IDENTIFIERS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
         const WALLETS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
+        const gpuTypes = [["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"]];
+        const gpuNums = [[2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]];
 
         // 部署 NodesGovernance 合约
         NodesGovernance = await ethers.getContractFactory("NodesGovernance");
-        nodesGovernance = await NodesGovernance.deploy(IDENTIFIERS, WALLETS, DETECT_DURATION_TIME, ROUND_DURATION_TIME, owner.address);
+        nodesGovernance = await NodesGovernance.deploy();
         await nodesGovernance.deployed();
+        await nodesGovernance.nodesGovernance_initialize(IDENTIFIERS, WALLETS, gpuTypes, gpuNums, owner.address, DETECT_DURATION_TIME, ROUND_DURATION_TIME, owner.address)
 
         // 部署 NodesConstantReward 合约
         NodesConstantReward = await ethers.getContractFactory("NodesConstantReward");
@@ -59,7 +62,7 @@ describe("NodesConstantReward", function () {
             await expect(nodesConstantReward.distributeRewards(detectPeriodId + 1, 120)).to.be.revertedWith("Reward settlement not continuous");
 
             await nodesConstantReward.distributeRewards(detectPeriodId, 120);
-            await expect(nodesConstantReward.distributeRewards(detectPeriodId, 120)).to.be.revertedWith("Reward has been settlemented");
+            await expect(nodesConstantReward.distributeRewards(detectPeriodId, 120)).to.be.revertedWith("Reward has been settled");
         });
 
         it("should correctly distribute rewards", async function () {
@@ -140,7 +143,6 @@ describe("NodesConstantReward", function () {
             await ethers.provider.send("evm_mine");
             await nodesConstantReward.distributeRewards(detectPeriodId, 120);
             // const result = await nodesGovernance.stateOfNodes(detectPeriodId, addr2.address)
-            // // console.log(result)
             const settlement = await nodesConstantReward.settlements(addr2.address);
             expect(settlement.pendingReward).to.equal(0);
         });

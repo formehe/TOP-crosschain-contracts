@@ -4,9 +4,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./NodesGovernance.sol";
 import "./ShareDataType.sol";
 import "./IReward.sol";
-// import "hardhat/console.sol";
+
 contract NodesConstantReward is IReward {
-    struct NodeSettlementPerPriod {
+    struct NodeSettlementPerPeriod {
         uint256 penalty;
         uint256 reward;
         uint256 pendingReward;
@@ -15,7 +15,7 @@ contract NodesConstantReward is IReward {
 
     NodesGovernance public nodes;
     // uint256 totalTOP; //单位gwei
-    mapping(address => NodeSettlementPerPriod) public settlements;
+    mapping(address => NodeSettlementPerPeriod) public settlements;
     uint256 public currentSettlementPeriodId;
     event RewardsDistributed(uint256 baseReward, uint256 elasticReward);
     // event PenaltyApplied(address indexed node, uint256 penaltyAmount);
@@ -27,7 +27,7 @@ contract NodesConstantReward is IReward {
 
     function distributeRewards(uint256 detectPeriodId, uint256 totalAsset) external override{
         require(totalAsset > 0, "Invalid coins");
-        require((detectPeriodId > currentSettlementPeriodId), "Reward has been settlemented");
+        require((detectPeriodId > currentSettlementPeriodId), "Reward has been settled");
         require((detectPeriodId - currentSettlementPeriodId) == 1, "Reward settlement not continuous");
         (NodeState[] memory states, uint256 totalQuotas) = nodes.settlementOnePeriod(detectPeriodId);
         currentSettlementPeriodId = detectPeriodId;
@@ -35,11 +35,11 @@ contract NodesConstantReward is IReward {
         for (uint256 i = 0; i < states.length; i++) {
             NodeState memory  state = states[i];
             uint256 pendingReward;
-            NodeSettlementPerPriod storage settlement = settlements[state.identifier];
+            NodeSettlementPerPeriod storage settlement = settlements[state.identifier];
             if (settlement.wallet != address(0)) {
                 pendingReward = settlement.pendingReward;
             } else {
-                settlements[state.identifier] = NodeSettlementPerPriod({
+                settlements[state.identifier] = NodeSettlementPerPeriod({
                     penalty: 0,
                     reward: 0,
                     pendingReward: 0,

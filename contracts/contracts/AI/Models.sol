@@ -16,6 +16,7 @@ contract Models is AdminControlledUpgradeable {
         string  modelName; // 模型名字
         string  modelVersion; // 模型版本
         address uploader; // 模型上传者钱包地址
+        string  extendInfo;
     }
 
     mapping(string => uint256) public modelRecordIds; // 模型和记录单号
@@ -33,13 +34,13 @@ contract Models is AdminControlledUpgradeable {
 
     event UploadRecorded(uint256 indexed recordId, address indexed uploader, uint256 reward, string modelInfo);
     event ModelInstanceCreated(uint256 indexed instanceId, string modelName, string modelVersion);
-    event ModelUsingRewardTransfered(uint256 indexed rewardId, uint256 indexed instanceId, uint256[] parameters, uint256 reward);
+    event ModelUsingRewardTransfer(uint256 indexed rewardId, uint256 indexed instanceId, uint256[] parameters, uint256 reward);
     event RewardCreated(uint256 indexed rewardId, uint256 indexed instanceId, address[] participants, uint256[][] rewards);
 
     constructor(address _aiTokenAddress, address _owner) initializer{
         require(Address.isContract(_aiTokenAddress), "Invalid token address");
         require(_owner != address(0), "Invalid owner");
-        aiToken = IERC20(_aiTokenAddress); // 初始化 AI Token 合约地址
+        aiToken = IERC20(_aiTokenAddress); // 初始化AI Token 合约地址
         nextInstanceId = 1; // 从1开始
         nextRecordId = 1;
         require(_owner != address(0), "Invalid owner");
@@ -55,10 +56,10 @@ contract Models is AdminControlledUpgradeable {
     // 记录模型上传并计算奖励
     function recordModelUpload(
         address uploader, 
-        uint256[] memory parameters,
-        string memory modelName,
-        string memory modelVersion,
-        string memory modelInfo
+        uint256[] calldata parameters,
+        string calldata modelName,
+        string calldata modelVersion,
+        string calldata modelInfo
     ) external onlyRole(CONTROLLED_ROLE) {
         string memory model = _modelId(modelName, modelVersion);
         require(modelRecordIds[model] == 0, "Model exist");
@@ -69,14 +70,15 @@ contract Models is AdminControlledUpgradeable {
             recordId: nextRecordId,
             modelName: modelName,
             modelVersion: modelVersion,
-            uploader: uploader
+            uploader: uploader,
+            extendInfo:modelInfo
         });
 
         modelRecordIds[model] = nextRecordId;
 
         // 将奖励的 AI Token 转移给模型上传者
         if (reward != 0 ) {
-            require(aiToken.transferFrom(msg.sender, uploader, reward), "Transfer failed"); // 从 AI Token 合约转移奖励
+            require(aiToken.transferFrom(msg.sender, uploader, reward), "Transfer failed"); // 从AI Token合约转移奖励
         }
         emit UploadRecorded(nextRecordId, uploader, reward, modelInfo);
         nextRecordId++; // 更新下一个记录 ID
@@ -97,8 +99,8 @@ contract Models is AdminControlledUpgradeable {
 
     // 创建模型实例
     function createModelInstance(
-        string memory modelName, 
-        string memory modelVersion
+        string calldata modelName, 
+        string calldata modelVersion
     ) external onlyRole(CONTROLLED_ROLE) {
         string memory model = _modelId(modelName, modelVersion);
         require(modelRecordIds[model] != 0, "Model is not existed");
@@ -115,14 +117,14 @@ contract Models is AdminControlledUpgradeable {
     function createReward(
         uint256 instanceId,
         uint256 rewardId,
-        uint256[] memory parameters,
-        address[] memory participants, 
-        uint256[][] memory rewardsParameters
+        uint256[] calldata parameters,
+        address[] calldata participants, 
+        uint256[][] calldata rewardsParameters
     ) external onlyRole(CONTROLLED_ROLE) {
         require(participants.length == rewardsParameters.length, "Participants and rewards length mismatch");
         ModelInstance storage instance = modelInstances[instanceId];
         require(bytes(instance.modelName).length != 0, "Model instance is not existed");
-        require(!_rewardRecords.get(rewardId), "Reward has been transfered");
+        require(!_rewardRecords.get(rewardId), "Reward has been transfer");
 
         string memory model = _modelId(instance.modelName, instance.modelVersion);
         uint256 reward = _calculateUsingReward(parameters);
@@ -139,7 +141,7 @@ contract Models is AdminControlledUpgradeable {
         require(aiToken.transferFrom(msg.sender, address(this), totalReward), "Token transfer failed"); // 从 AI Token 合约转移奖励
 
         require(aiToken.transfer(uploader, reward), "Token transfer failed"); // 从 AI Token 合约转移奖励
-        emit ModelUsingRewardTransfered(rewardId, instanceId, parameters, reward);
+        emit ModelUsingRewardTransfer(rewardId, instanceId, parameters, reward);
 
         // 将 AI Token 转移给参与者
         for (uint256 i = 0; i < participants.length; i++) {

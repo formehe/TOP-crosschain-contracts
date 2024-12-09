@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-// import "hardhat/console.sol";
 
 contract AdminControlledUpgradeable is Initializable,AccessControl {
     uint public paused;

@@ -129,7 +129,7 @@ describe("Models Contract", function () {
 
             await models.createReward(1, 1, rewardParameters, participants, rewards);
             await expect(models.createReward(1, 1, rewardParameters, participants, rewards))
-                .to.be.revertedWith("Reward has been transfered");
+                .to.be.revertedWith("Reward has been transfer");
         });
     });
 });
