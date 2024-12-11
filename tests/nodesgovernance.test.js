@@ -11,10 +11,11 @@ describe("NodesGovernance Contract", function () {
     const ROUND_DURATION_TIME = 3600;  // 1 hour
 
     beforeEach(async function () {
-        [owner, verifier, addr1, addr2, addr3, addr4, addr5, addr6] = await ethers.getSigners();
+        [owner, verifier, addr1, addr2, addr3, addr4, addr5, addr6, addr7] = await ethers.getSigners();
         
         let IDENTIFIERS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
         let WALLETS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
+        let ALIAS_IDENTIFIERS = ["11111111111111111", "21111111111111111", "31111111111111111", "41111111111111111","51111111111111111","61111111111111111"]
         const gpuTypes = [["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"]];
         const gpuNums = [[2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]];
 
@@ -22,11 +23,11 @@ describe("NodesGovernance Contract", function () {
         const NodesGovernanceFactory = await ethers.getContractFactory("NodesGovernance");
         nodesGovernance = await NodesGovernanceFactory.deploy();
         await nodesGovernance.deployed();
-        await nodesGovernance.nodesGovernance_initialize(IDENTIFIERS, WALLETS, gpuTypes, gpuNums, verifier.address, DETECT_DURATION_TIME, ROUND_DURATION_TIME, owner.address)
+        await nodesGovernance.nodesGovernance_initialize(IDENTIFIERS, ALIAS_IDENTIFIERS, WALLETS, gpuTypes, gpuNums, verifier.address, ROUND_DURATION_TIME)
     });
 
     it("should start a new validation round", async function () {
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
 
@@ -35,20 +36,20 @@ describe("NodesGovernance Contract", function () {
     });
 
     it("should not start a new validation round if the previous round has not ended", async function () {
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
         await expect(nodesGovernance.startNewValidationRound()).to.be.revertedWith("Previous round is not ending");
     });
 
     it("should allow validators to vote", async function () {
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
         const currentRoundId = await nodesGovernance.currentRoundId();
-        const verifiers = await nodesGovernance.getRoundVerifiers(currentRoundId);
-        const verifier = verifiers[0]
-        const validators = await nodesGovernance.getValidatorsOfVerifier(currentRoundId, verifier)
+        const candidates = await nodesGovernance.getRoundCandidates(currentRoundId);
+        const candidate = candidates[0]
+        const validators = await nodesGovernance.getValidatorsOfCandidate(currentRoundId, candidate)
         const VOTERS = [addr1, addr2, addr3, addr4, addr5, addr6]
         let voter;
         
@@ -57,22 +58,22 @@ describe("NodesGovernance Contract", function () {
                 voter = VOTERS[i]
 
         // 模拟验证人投票
-        await nodesGovernance.connect(voter).vote(currentRoundId, verifier, true);
-        const voted = await nodesGovernance.votedPerVerifier(currentRoundId, verifier);
+        await nodesGovernance.connect(voter).vote(currentRoundId, candidate, true);
+        const voted = await nodesGovernance.votedPerCandidate(currentRoundId, candidate);
 
         expect(voted.yesVotes).to.equal(1);
         expect(voted.noVotes).to.equal(0);
     });
 
     it("should complete validation if majority votes yes", async function () {
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
-        const currentRoundId = await nodesGovernance.currentRoundId();
+        let currentRoundId = await nodesGovernance.currentRoundId();
 
-        const verifiers = await nodesGovernance.getRoundVerifiers(currentRoundId);
-        const verifier = verifiers[0]
-        const validators = await nodesGovernance.getValidatorsOfVerifier(currentRoundId, verifiers[0]);
+        const candidates = await nodesGovernance.getRoundCandidates(currentRoundId);
+        const candidate = candidates[0]
+        const validators = await nodesGovernance.getValidatorsOfCandidate(currentRoundId, candidates[0]);
         const VOTERS = [addr1, addr2, addr3, addr4, addr5, addr6]
         let voters = []
         for (let j = 0; j < validators.length; j++)
@@ -81,27 +82,75 @@ describe("NodesGovernance Contract", function () {
                     voters[j] = VOTERS[i]
 
         // 模拟多名验证人投票
-        await expect(nodesGovernance.connect(owner).vote(currentRoundId, verifier, true)).to.be.revertedWith("Invalid validator");
-        await nodesGovernance.connect(voters[0]).vote(currentRoundId, verifier, true);
-        await nodesGovernance.connect(voters[1]).vote(currentRoundId, verifier, true);
-        await nodesGovernance.connect(voters[2]).vote(currentRoundId, verifier, false);
+        await expect(nodesGovernance.connect(owner).vote(currentRoundId, candidate, true)).to.be.revertedWith("Invalid validator");
+        await nodesGovernance.connect(voters[0]).vote(currentRoundId, candidate, true);
+        await nodesGovernance.connect(voters[1]).vote(currentRoundId, candidate, true);
+        await nodesGovernance.connect(voters[2]).vote(currentRoundId, candidate, false);
         
-        let voted = await nodesGovernance.votedPerVerifier(currentRoundId, verifier);
+        let voted = await nodesGovernance.votedPerCandidate(currentRoundId, candidate);
         expect(voted.completed).to.equal(false);
-        await nodesGovernance.connect(voters[3]).vote(currentRoundId, verifier, true);
-        await expect(nodesGovernance.connect(voters[4]).vote(currentRoundId, verifier, true)).to.be.revertedWith("Validation already completed");
+        await nodesGovernance.connect(voters[3]).vote(currentRoundId, candidate, true);
+        await expect(nodesGovernance.connect(voters[4]).vote(currentRoundId, candidate, true)).to.be.revertedWith("Validation already completed");
 
-        voted = await nodesGovernance.votedPerVerifier(currentRoundId, verifier);
+        voted = await nodesGovernance.votedPerCandidate(currentRoundId, candidate);
         expect(voted.completed).to.equal(true);
         expect(Number(voted.yesVotes)).to.be.greaterThan(Number(voted.noVotes));
     });
 
+    it("register and active if majority votes yes", async function () {
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_mine");
+
+        await nodesGovernance.connect(addr7).registerNode(addr7.address, "71111111111111111", ["A100", "V100"], [3, 2]);
+        let node = await nodesGovernance.get(addr7.address);
+        expect(node.identifier).to.equal(addr7.address);
+        expect(node.wallet).to.equal(addr7.address);
+        expect(node.active).to.be.false;
+        expect(node.gpus[0].gpuType).to.equal("A100");
+        expect(node.gpus[0].totalNum).to.equal(3);
+        expect(node.gpus[1].gpuType).to.equal("V100");
+        expect(node.gpus[1].totalNum).to.equal(2);
+        const currentRoundId = await nodesGovernance.currentRoundId();
+
+        const candidates = await nodesGovernance.getRoundCandidates(currentRoundId);
+        const candidate = candidates[0]
+        const validators = await nodesGovernance.getValidatorsOfCandidate(currentRoundId, candidates[0]);
+        const VOTERS = [addr1, addr2, addr3, addr4, addr5, addr6]
+        let voters = []
+        for (let j = 0; j < validators.length; j++)
+            for (let i = 0; i < VOTERS.length; i++)
+                if (VOTERS[i].address == validators[j])
+                    voters[j] = VOTERS[i]
+
+        // 模拟多名验证人投票
+        await nodesGovernance.connect(voters[0]).vote(currentRoundId, candidate, true);
+        await nodesGovernance.connect(voters[1]).vote(currentRoundId, candidate, true);
+        await nodesGovernance.connect(voters[2]).vote(currentRoundId, candidate, false);
+        
+        let voted = await nodesGovernance.votedPerCandidate(currentRoundId, candidate);
+        expect(voted.completed).to.equal(false);
+        node = await nodesGovernance.get(addr7.address);
+        expect(node.identifier).to.equal(addr7.address);
+        expect(node.wallet).to.equal(addr7.address);
+        expect(node.active).to.be.false;
+        await nodesGovernance.connect(voters[3]).vote(currentRoundId, candidate, true);
+        await expect(nodesGovernance.connect(voters[4]).vote(currentRoundId, candidate, true)).to.be.revertedWith("Validation already completed");
+
+        voted = await nodesGovernance.votedPerCandidate(currentRoundId, candidate);
+        expect(voted.completed).to.equal(true);
+        node = await nodesGovernance.get(addr7.address);
+        expect(node.identifier).to.equal(addr7.address);
+        expect(node.wallet).to.equal(addr7.address);
+        expect(node.active).to.be.true;
+        expect(Number(voted.yesVotes)).to.be.greaterThan(Number(voted.noVotes));
+    });
+
     it("should revert if validation time is exceeded", async function () {
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
-        // 快进时间
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
 
         const currentRoundId = await nodesGovernance.currentRoundId();
@@ -109,12 +158,12 @@ describe("NodesGovernance Contract", function () {
     });
 
     it("should allow owner to settle a period", async function () {
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_increaseTime", [ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
         const detectPeriodId = await nodesGovernance.currentDetectCircleId();
 
-        await ethers.provider.send("evm_increaseTime", [DETECT_DURATION_TIME + 1]);
+        await ethers.provider.send("evm_increaseTime", [24 * ROUND_DURATION_TIME + 1]);
         await ethers.provider.send("evm_mine");
         await nodesGovernance.startNewValidationRound();
 

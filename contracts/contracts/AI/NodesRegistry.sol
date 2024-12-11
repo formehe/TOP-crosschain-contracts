@@ -4,14 +4,13 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./ShareDataType.sol";
-import "hardhat/console.sol";
 
-contract NodesRegistry is Initializable {
+abstract contract NodesRegistry is Initializable {
     using EnumerableSet for EnumerableSet.AddressSet;
     struct Node {
         address identifier;
+        string  aliasIdentifier;
         uint256 registrationTime;
-        uint256 unRegistrationTime;
         bool    active;
         ComputeAvailable[] gpus;
         address wallet;
@@ -24,18 +23,20 @@ contract NodesRegistry is Initializable {
     }
 
     mapping(address => Node) private nodes;
+    mapping(string => address) private aliasNodes;
     mapping(address => mapping(string => uint256)) public gpuTypeOfNodes;//gpu index
     mapping(string => ComputeAvailable) public gpuSummary;
     EnumerableSet.AddressSet private identifiers;
     mapping(address => address) private authorizations;
     address public allocator;
 
-    event NodeRegistered(address indexed miner, address identifier, uint256 time);
-    event NodeDeregistered(address indexed identifier, uint256 time);
+    event NodeRegistered(address indexed miner, address identifier, uint256 time, string aliasIdentifier);
+    event NodeDeregistered(address indexed identifier, uint256 time, string aliasIdentifier);
     event authorized(address indexed owner, address indexed spender);
 
     function _nodesRegistry_initialize(
         address[]   calldata _identifiers,
+        string[]    calldata _aliasIdentifiers,
         address[]   calldata _wallets,
         string[][]  calldata _gpuTypes,
         uint256[][] calldata _gpuNums,
@@ -43,10 +44,12 @@ contract NodesRegistry is Initializable {
     ) internal onlyInitializing {
         require((_identifiers.length == _wallets.length)
             && (_identifiers.length == _gpuTypes.length)
-            && (_identifiers.length == _gpuNums.length), "Invalid initialize parameters");
+            && (_identifiers.length == _gpuNums.length)
+            && (_identifiers.length == _aliasIdentifiers.length), "Invalid initialize parameters");
         
         for (uint256 i = 0; i < _identifiers.length; i++) {
-            _registerNode(_wallets[i], _identifiers[i], _gpuTypes[i], _gpuNums[i]);
+            _registerNode(_wallets[i], _identifiers[i], _aliasIdentifiers[i], _gpuTypes[i], _gpuNums[i]);
+            _active(_identifiers[i]);
         }
 
         require(_allocator != address(0), "Invalid allocator");
@@ -54,11 +57,13 @@ contract NodesRegistry is Initializable {
     }
 
     function registerNode(
-        address   wallet,
+        address            wallet,
+        string    calldata aliasIdentifier,
         string[]  calldata gpuTypes,
         uint256[] calldata gpuNums
     ) public {
-        _registerNode(wallet, msg.sender, gpuTypes, gpuNums);
+        _registerNode(wallet, msg.sender, aliasIdentifier, gpuTypes, gpuNums);
+        _checkRegister(wallet);
     }
 
     function deregisterNode(
@@ -72,7 +77,7 @@ contract NodesRegistry is Initializable {
     ) public {
         require(_check(authorizer, msg.sender), "Not authorized");
         _cancel(authorizer);
-        _deregisterNode(authorizer); 
+        _deregisterNode(authorizer);
     }
 
     // approve
@@ -228,58 +233,67 @@ contract NodesRegistry is Initializable {
         require(identifier != address(0), "Invalid identifier");
         Node storage node = nodes[identifier];
         require(node.identifier != address(0), "Identifier not exist");
-        require(node.active == true, "Identifier has been deregistered");
-        node.active = false;
+        string memory aliasIdentifier = node.aliasIdentifier;
         for (uint256 i = 0; i < node.gpus.length; i++) {
             ComputeAvailable storage available = node.gpus[i];
             gpuSummary[available.gpuType].totalNum -= available.totalNum;
             gpuSummary[available.gpuType].used -= available.used;
             available.used = 0;
         }
-        node.unRegistrationTime = block.timestamp;
-        emit NodeDeregistered(identifier, block.timestamp);
+
+        delete aliasNodes[aliasIdentifier];
+        delete nodes[identifier];
+        identifiers.remove(identifier);
+
+        emit NodeDeregistered(identifier, block.timestamp, aliasIdentifier);
     }
 
     function _registerNode(
         address wallet,
         address identifier,
+        string  calldata aliasIdentifier,
         string[]  calldata gpuTypes,
         uint256[] calldata gpuNums
     ) internal {
         require(gpuTypes.length == gpuNums.length, "Invalid GPU data");
-        require(wallet != address(0) && (identifier != address(0)), "Invalid wallet or identifier");
-        Node storage node = nodes[identifier];
-        if (node.identifier == address(0)) {
-            mapping(string => uint256) storage gpuTypeOfNode = gpuTypeOfNodes[identifier];
-            node.identifier = identifier;
-            node.registrationTime = block.timestamp;
-            node.unRegistrationTime = 0;
-            node.active = true;
-            node.wallet = wallet;
-            for (uint256 i = 0; i < gpuTypes.length; i++) {
-                node.gpus.push(ComputeAvailable({
-                    gpuType: gpuTypes[i],
-                    totalNum: gpuNums[i],
-                    used: 0
-                }));
+        require(wallet != address(0) && (identifier != address(0)) 
+            && (bytes(aliasIdentifier).length > 0), "Invalid wallet or identifier");
 
-                gpuTypeOfNode[gpuTypes[i]] = node.gpus.length;
-                gpuSummary[gpuTypes[i]].totalNum += gpuNums[i];
-                gpuSummary[gpuTypes[i]].gpuType = gpuTypes[i];
-            }
-            identifiers.add(identifier);
-        } else if(!node.active) {
-            node.active = true;
-            node.registrationTime = block.timestamp;
-            node.unRegistrationTime = 0;
-            for (uint256 i = 0; i < node.gpus.length; i++) {
-                ComputeAvailable storage available = node.gpus[i];
-                gpuSummary[available.gpuType].totalNum += available.totalNum;
-            }
-        } else {
-            revert("Identifier exist");
+        Node storage node = nodes[identifier];
+        require(node.identifier == address(0), "Identifier exist");
+        require(aliasNodes[aliasIdentifier] == address(0), "Alias identifier exist");
+        
+        mapping(string => uint256) storage gpuTypeOfNode = gpuTypeOfNodes[identifier];
+        node.identifier = identifier;
+        node.registrationTime = block.timestamp;
+        node.wallet = wallet;
+        node.aliasIdentifier = aliasIdentifier;
+
+        for (uint256 i = 0; i < gpuTypes.length; i++) {
+            node.gpus.push(ComputeAvailable({
+                gpuType: gpuTypes[i],
+                totalNum: gpuNums[i],
+                used: 0
+            }));
+
+            gpuTypeOfNode[gpuTypes[i]] = node.gpus.length;
+            gpuSummary[gpuTypes[i]].totalNum += gpuNums[i];
+            gpuSummary[gpuTypes[i]].gpuType = gpuTypes[i];
         }
 
-        emit NodeRegistered(wallet, identifier, block.timestamp);
+        identifiers.add(identifier);
+        aliasNodes[aliasIdentifier] = identifier;
+
+        emit NodeRegistered(wallet, identifier, block.timestamp, aliasIdentifier);
     }
+
+    function _active(address identifier) internal {
+        Node storage node = nodes[identifier];
+        require(node.identifier != address(0), "Identifier not exist");
+        if (!node.active) {
+            node.active = true;
+        }
+    }
+
+    function _checkRegister(address candidate) internal virtual;
 }

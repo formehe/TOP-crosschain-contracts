@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./NodesRegistry.sol";
 
-contract AIModelUpload {
+contract AIModels {
     struct UploadRecord {
         uint256 recordId;
         string  modelName;
@@ -20,19 +20,7 @@ contract AIModelUpload {
     mapping(uint256 => address[]) public modelDistribution;
     mapping(address => uint256[]) public nodeDeployment;
 
-    // struct ModelInstance {
-    //     string  modelName;
-    //     string  modelVersion;
-    //     string  aliasName;
-    //     uint256 modelRecordId;
-    // }
-
-    // mapping(uint256 => ModelInstance) public modelInstances;
-    // mapping(string => bool) public modelInstanceName;
-    // uint256 public nextInstanceId = 1;
-
     event UploadRecorded(uint256 indexed recordId, address indexed uploader, string modelName, string modelVersion, string modelInfo);
-    // event ModelInstanceCreated(uint256 indexed instanceId, string modelName, string modelVersion, string aliasName);
     event ModelDeployed(address indexed node, uint256 indexed modelId);
     event ModelRemoved(address indexed node, uint256 indexed modelId);
 
@@ -64,33 +52,8 @@ contract AIModelUpload {
         nextRecordId++;
     }
 
-    // function createModelInstance(
-    //     string calldata modelName,
-    //     string calldata modelVersion,
-    //     string calldata aliasName
-    // ) external returns(uint256 instanceId) {
-    //     string memory model = _modelId(modelName, modelVersion);
-    //     uint256 recordId = modelRecordIds[model];
-    //     require(recordId != 0, "Model is not existed");
-    //     require(!modelInstanceName[aliasName], "Model instance is exist");
-
-    //     modelInstances[nextInstanceId] = ModelInstance({
-    //         modelName: modelName,
-    //         modelVersion: modelVersion,
-    //         aliasName: aliasName,
-    //         modelRecordId: recordId
-    //     });
-
-    //     modelInstanceName[aliasName] = true;
-
-    //     emit ModelInstanceCreated(nextInstanceId, modelName, modelVersion, aliasName);
-    //     instanceId = nextInstanceId;
-    //     nextInstanceId++;
-    // }
-
     function reportDeployment(uint256 recordId) public {
-        require(registry.check(msg.sender), "Node is not registered");
-        require(recordId != 0, "Invalid record id");
+        require(registry.check(msg.sender), "Node is not active");
         UploadRecord storage record = uploadRecords[recordId];
         require(record.recordId != 0, "Model is not exist");
         
@@ -101,7 +64,6 @@ contract AIModelUpload {
     }
 
     function removeDeployment(uint256 recordId) public {
-        require(registry.check(msg.sender), "Node is not registered");
         _removeFromModelDistribution(recordId, msg.sender);
         _removeFromNodeDeployment(recordId, msg.sender);
 

@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../common/AdminControlledUpgradeable.sol";
 import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 
-contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
+contract NodesGovernance is NodesRegistry{
     uint256 public detectDurationTime;
     uint256 public roundDurationTime;
 
     enum VoteType {None, Active, Against, For}
 
-    struct VerifierVoted {
-        address verifier;   // 被验证节点
+    struct CandidateVoted {
+        address candidate;   // 被验证节点
         uint128 yesVotes;   // 通过投票次数
         uint128 noVotes;    // 不通过投票次数
         bool    completed;  // 验证是否完成
@@ -30,15 +29,15 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
     }
 
     struct ValidationRound {
-        address[]     verifierSets; // 验证集
+        address[]     candidateSets; // 验证集
         uint256       numOfNodes;
         uint256       expectedCompletionTime; // 验证期望完成时间
     }
 
     mapping(uint256 => mapping(address => ValidatorVote)) internal votesPerValidator; // 验证者投票信息
-    mapping(uint256 => mapping(address => address[])) public validatorsPerVerifier; // 验证者集合
-    mapping(uint256 => mapping(address => VerifierVoted)) public votedPerVerifier; // 存储轮次信息
-    mapping(uint256 => ValidationRound) public verifierPerRound; // 存储轮次信息
+    mapping(uint256 => mapping(address => address[])) public validatorsPerCandidate; // 验证者集合
+    mapping(uint256 => mapping(address => CandidateVoted)) public votedPerCandidate; // 存储轮次信息
+    mapping(uint256 => ValidationRound) public candidatePerRound; // 存储轮次信息
 
     mapping(uint256 => RoundRange) public detectPeriods;
     mapping(uint256 => mapping(address => NodeState)) internal stateOfNodes;
@@ -47,93 +46,82 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
 
     uint256 public currentDetectCircleId;
     uint256 public currentDetectCircleStartTime;
-    uint256 public currentRoundId; // 当前轮次ID
+    uint256 public currentRoundId; 
     uint256 public currentRoundStartTime;
-    uint256 public constant VALIDATOR_PER_VERIFIER = 5; // 每个被验证节点需要的验证节点数
-    uint256 public constant MIN_VERIFIER = 5; // 被验证节点数
+    uint256 public constant VALIDATOR_PER_CANDIDATE = 5; 
+    uint256 public constant MIN_CANDIDATE = 5;
 
-    event ValidationStarted(uint256 roundId, uint256 expectedCompletionTime, address verifier, address[] validators);
+    event ValidationStarted(uint256 roundId, uint256 expectedCompletionTime, address candidate, address[] validators);
     event ValidationResult(uint256 roundId, address validator, bool result);
     event SettlementResult(NodeState[] states, uint256 totalQuota);
 
     function nodesGovernance_initialize(
         address[] calldata   _identifiers,
+        string[]  calldata   _aliasIdentifiers,
         address[] calldata   _walletAccounts,
         string[][]  calldata _gpuTypes,
         uint256[][] calldata _gpuNums,
         address              _allocator,
-        uint256             _detectDurationTime,
-        uint256             _roundDurationTime,
-        address             _owner
+        uint256              _roundDurationTime
     ) external initializer {
-        require(_owner != address(0), "Invalid owner");
-        require(_identifiers.length > MIN_VERIFIER, "Must larger than 5");
-
-        require(_owner != address(0), "Invalid owner");
-        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
-        _setRoleAdmin(CONTROLLED_ROLE, ADMIN_ROLE);
-
-        _grantRole(OWNER_ROLE, _owner);
-        _grantRole(ADMIN_ROLE, msg.sender);
-        AdminControlledUpgradeable._AdminControlledUpgradeable_init(msg.sender, 0xff);
-        NodesRegistry._nodesRegistry_initialize(_identifiers, _walletAccounts, _gpuTypes, _gpuNums, _allocator);
+        NodesRegistry._nodesRegistry_initialize(_identifiers, _aliasIdentifiers, _walletAccounts, _gpuTypes, _gpuNums, _allocator);
 
         currentRoundStartTime = block.timestamp;
-        detectDurationTime = _detectDurationTime;
-        roundDurationTime = _roundDurationTime;
+        detectDurationTime = 24 * _roundDurationTime;
+        roundDurationTime =  _roundDurationTime;
     }
 
-    function _pickVerifierValidators(
+    function _pickValidators(address candidate, uint256 roundId, bytes memory random) internal {
+        uint256 numOfValidators = 0;
+        
+        candidatePerRound[roundId].candidateSets.push(candidate);
+        votedPerCandidate[roundId][candidate] = CandidateVoted({
+            candidate: candidate,
+            yesVotes: 0,
+            noVotes: 0,
+            completed: false
+        });
+
+        for (uint256 i = 0; numOfValidators < VALIDATOR_PER_CANDIDATE; i++) {
+            uint256 validatorIndex = uint256(keccak256(abi.encodePacked(random, i))) % length();
+            Node memory validator = at(validatorIndex);
+            if (!validator.active) {
+                continue;
+            }
+            
+            ValidatorVote storage validatorVote = votesPerValidator[roundId][candidate];
+
+            if ((validator.identifier != candidate) && (validatorVote.validators[validator.identifier] == VoteType.None)) {
+                validatorVote.validators[validator.identifier] = VoteType.Active;
+                validatorsPerCandidate[roundId][candidate].push(validator.identifier);
+                numOfValidators++;
+            }
+        }
+    }
+
+    function _pickCandidateValidators(
         uint256 detectId, 
         uint256 roundId, 
         uint256 expectFinishTime
     ) internal {
-        uint256 numOfVerifiers = 0;
+        uint256 numOfCandidate = 0;
         RoundRange storage range = detectPeriods[detectId];
-        for (uint256 i = 0; numOfVerifiers < MIN_VERIFIER; i++) {
-            bytes memory randomVerifier = abi.encodePacked(block.timestamp, blockhash(block.number - 1), i);
-            uint256 verifierIndex = uint256(keccak256(randomVerifier)) % length();
-            address verifier = at(verifierIndex).identifier;
-            if ((at(verifierIndex).unRegistrationTime != 0) || 
-                (at(verifierIndex).registrationTime > range.startTime)) {
+
+        for (uint256 i = 0; numOfCandidate < MIN_CANDIDATE; i++) {
+            bytes memory randomCandidate = abi.encodePacked(block.timestamp, blockhash(block.number - 1), i);
+            uint256 candidateIndex = uint256(keccak256(randomCandidate)) % length();
+            Node memory candidate = at(candidateIndex);
+            if ((candidate.registrationTime > range.startTime) || !candidate.active) {
                 continue;
             }
 
-            if (validatorsPerVerifier[roundId][verifier].length != 0) {
+            if (validatorsPerCandidate[roundId][candidate.identifier].length != 0) {
                 continue;
             }
 
-            numOfVerifiers++;
-
-            verifierPerRound[roundId].expectedCompletionTime = expectFinishTime;
-            verifierPerRound[roundId].verifierSets.push(verifier);
-            verifierPerRound[roundId].numOfNodes = length();
-            votedPerVerifier[roundId][verifier] = VerifierVoted({
-                verifier: verifier,
-                yesVotes: 0,
-                noVotes: 0,
-                completed: false
-            });
-
-            uint256 numOfValidators = 0;
-            for (uint256 j = 0; numOfValidators < VALIDATOR_PER_VERIFIER; j++) {
-                bytes memory randomValidator = abi.encodePacked(randomVerifier, j);
-                uint256 validatorIndex = uint256(keccak256(randomValidator)) % length();
-                address validator = at(validatorIndex).identifier;
-                if (at(validatorIndex).unRegistrationTime != 0) {
-                    continue;
-                }
-                
-                ValidatorVote storage validatorVote = votesPerValidator[roundId][verifier];
-
-                if ((validator != verifier) && (validatorVote.validators[validator] == VoteType.None)) {
-                    validatorVote.validators[validator] = VoteType.Active;
-                    validatorsPerVerifier[roundId][verifier].push(validator);
-                    numOfValidators++;
-                }
-            }
-
-            emit ValidationStarted(roundId, expectFinishTime, verifier, validatorsPerVerifier[roundId][verifier]);
+            numOfCandidate++;
+            _pickValidators(candidate.identifier, roundId, randomCandidate);
+            emit ValidationStarted(roundId, expectFinishTime, candidate.identifier, validatorsPerCandidate[roundId][candidate.identifier]);
         }
     }
 
@@ -142,7 +130,7 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
     ) internal view returns(uint256 count) {
         RoundRange storage range = detectPeriods[detectId];
         for (uint256 i = 0; i < length(); i++) {
-            if ((at(i).unRegistrationTime != 0) || 
+            if ((!at(i).active) || 
                 (at(i).registrationTime > range.startTime)) {
                 continue;
             }
@@ -153,9 +141,31 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
         return count;
     }
 
+    function _checkRegister(address candidate) internal override {
+        uint256 currentTime = block.timestamp;
+
+        currentRoundId++;
+        // currentRoundStartTime = currentTime;
+        if ((currentTime - currentDetectCircleStartTime) > detectDurationTime) {
+            currentDetectCircleId++;
+            currentDetectCircleStartTime = currentTime;
+            detectPeriods[currentDetectCircleId] = RoundRange(currentRoundId, currentRoundId, currentTime, currentTime);
+        } else {
+            detectPeriods[currentDetectCircleId].endId = currentRoundId;
+            detectPeriods[currentDetectCircleId].endTime = currentTime;
+        }
+
+        candidatePerRound[currentRoundId].expectedCompletionTime = currentTime + roundDurationTime;
+        candidatePerRound[currentRoundId].numOfNodes = _lenOfAvailableNodes(currentDetectCircleId);
+        _pickValidators(candidate, currentRoundId, 
+            abi.encodePacked(block.timestamp, blockhash(block.number - 1), uint256(1)));
+
+        emit ValidationStarted(currentRoundId, currentTime + roundDurationTime, candidate, validatorsPerCandidate[currentRoundId][candidate]);
+    }
+
     // 开始新一轮验证
     function startNewValidationRound(
-    ) external onlyRole(CONTROLLED_ROLE) returns (uint256 detectId, uint256 roundId){
+    ) external returns (uint256 detectId, uint256 roundId){
         uint256 currentTime = block.timestamp;
         require((currentTime - currentRoundStartTime) > roundDurationTime, "Previous round is not ending");
 
@@ -170,24 +180,25 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
             detectPeriods[currentDetectCircleId].endTime = currentTime;
         }
 
-        verifierPerRound[currentRoundId].expectedCompletionTime = currentTime + roundDurationTime;
-        verifierPerRound[currentRoundId].numOfNodes = _lenOfAvailableNodes(currentDetectCircleId);
-        _pickVerifierValidators(currentDetectCircleId, currentRoundId, currentTime + roundDurationTime);
+        candidatePerRound[currentRoundId].expectedCompletionTime = currentTime + roundDurationTime;
+        candidatePerRound[currentRoundId].numOfNodes = _lenOfAvailableNodes(currentDetectCircleId);
+
+        _pickCandidateValidators(currentDetectCircleId, currentRoundId, currentTime + roundDurationTime);
         return (currentDetectCircleId, currentRoundId);
     }
 
     // 验证节点投票
     function vote(
         uint256 roundId,
-        address verifier,
+        address candidate,
         bool result
     ) external {
-        ValidationRound storage round = verifierPerRound[roundId];
+        ValidationRound storage round = candidatePerRound[roundId];
         require(round.expectedCompletionTime >= block.timestamp, "Validation time exceeded");
-        ValidatorVote storage validatorVote = votesPerValidator[roundId][verifier];
+        ValidatorVote storage validatorVote = votesPerValidator[roundId][candidate];
         require(validatorVote.validators[msg.sender] == VoteType.Active, "Invalid validator");
 
-        VerifierVoted storage voted = votedPerVerifier[roundId][verifier];
+        CandidateVoted storage voted = votedPerCandidate[roundId][candidate];
         require(!voted.completed, "Validation already completed");
 
         // 更新投票结果
@@ -199,7 +210,7 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
             validatorVote.validators[msg.sender] = VoteType.Against;
         }
 
-        uint256 len = validatorsPerVerifier[roundId][verifier].length;
+        uint256 len = validatorsPerCandidate[roundId][candidate].length;
 
         if (((voted.yesVotes + voted.noVotes) == len) 
             && (voted.yesVotes == voted.noVotes)) {
@@ -208,9 +219,9 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
             return;
         }
 
-        // 检查是否达到多数通过
         if (voted.yesVotes > (len / 2)) {
             voted.completed = true;
+            _active(candidate);
             emit ValidationResult(roundId, msg.sender, true);
         } else if (voted.noVotes > (len / 2)) {
             voted.completed = true;
@@ -218,17 +229,17 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
         }
     }
 
-    function getRoundVerifiers(
+    function getRoundCandidates(
         uint256 roundId
-    ) public view returns (address[] memory verifiers) {
-        return verifierPerRound[roundId].verifierSets;
+    ) public view returns (address[] memory candidates) {
+        return candidatePerRound[roundId].candidateSets;
     }
 
-    function getValidatorsOfVerifier(
+    function getValidatorsOfCandidate(
         uint256 roundId,
-        address verifier
+        address candidate
     ) public view returns (address[] memory validators) {
-        return validatorsPerVerifier[roundId][verifier];
+        return validatorsPerCandidate[roundId][candidate];
     }
 
     function settlementOnePeriod(
@@ -241,12 +252,11 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
         address[] storage nodes = nodesPerPeriod[detectPeriodId];
         require(nodes.length == 0, "Period has been settled");
         uint256 roundsInPeriod = range.endId - range.startId + 1;
-        uint256 noVotes;
         
         for (uint256 i = 0; i < length(); i++){
             address identifier = at(i).identifier;
             address wallet = at(i).wallet;
-            if ((at(i).unRegistrationTime != 0) || (at(i).registrationTime > range.startTime)) {
+            if ((!at(i).active) || (at(i).registrationTime > range.startTime)) {
                 continue;
             }
 
@@ -256,25 +266,23 @@ contract NodesGovernance is NodesRegistry, AdminControlledUpgradeable{
         }
 
         for (uint256 i = range.startId; i <= range.endId; i++) {
-            ValidationRound storage validationRound = verifierPerRound[i];
+            ValidationRound storage validationRound = candidatePerRound[i];
             totalQuotas = totalQuotas + validationRound.numOfNodes;
-            for (uint256 j = 0; j < validationRound.verifierSets.length; j++) {
-                address verifier = validationRound.verifierSets[j];
-                VerifierVoted storage voted = votedPerVerifier[i][verifier];
-                if (voted.verifier == address(0)) {
+            for (uint256 j = 0; j < validationRound.candidateSets.length; j++) {
+                address candidate = validationRound.candidateSets[j];
+                CandidateVoted storage voted = votedPerCandidate[i][candidate];
+                if (voted.candidate == address(0)) {
                     continue;
                 }
 
-                NodeState storage state = stateOfNodes[detectPeriodId][verifier];
+                NodeState storage state = stateOfNodes[detectPeriodId][candidate];
 
                 if (!voted.completed) {
-                    noVotes++;
                     state.failedCnt++;
                     continue;
                 }
 
                 if (voted.yesVotes <= voted.noVotes) {
-                    noVotes++;
                     state.failedCnt++;
                     continue;
                 }
