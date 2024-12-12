@@ -20,7 +20,9 @@ contract NodesRegistryImpl is NodesRegistry {
         _nodesRegistry_initialize(_identifiers, _aliasIdentifiers, _wallets, _gpuTypes, _gpuNums, _allocator);
     }
 
-    function _checkRegister(address candidate) internal override {
+    function _checkRegister(
+        address candidate
+    ) internal override {
         _active(candidate);
     }
 }

@@ -21,8 +21,8 @@ contract AIModels {
     mapping(address => uint256[]) public nodeDeployment;
 
     event UploadRecorded(uint256 indexed recordId, address indexed uploader, string modelName, string modelVersion, string modelInfo);
-    event ModelDeployed(address indexed node, uint256 indexed modelId);
-    event ModelRemoved(address indexed node, uint256 indexed modelId);
+    event ModelDeployed(address indexed node, uint256 indexed recordId);
+    event ModelRemoved(address indexed node, uint256 indexed recordId);
 
     constructor(address _registry) {
         require(_registry != address(0), "Invalid registry address");
@@ -33,7 +33,7 @@ contract AIModels {
         string calldata modelName,
         string calldata modelVersion,
         string calldata modelInfo
-    ) external returns(uint256 recordId){
+    ) external returns(uint256 recordId) {
         string memory model = _modelId(modelName, modelVersion);
         require(modelRecordIds[model] == 0, "Model exist");
 
@@ -52,7 +52,9 @@ contract AIModels {
         nextRecordId++;
     }
 
-    function reportDeployment(uint256 recordId) public {
+    function reportDeployment(
+        uint256 recordId
+    ) external {
         require(registry.check(msg.sender), "Node is not active");
         UploadRecord storage record = uploadRecords[recordId];
         require(record.recordId != 0, "Model is not exist");
@@ -63,18 +65,24 @@ contract AIModels {
         emit ModelDeployed(msg.sender, recordId);
     }
 
-    function removeDeployment(uint256 recordId) public {
+    function removeDeployment(
+        uint256 recordId
+    ) external {
         _removeFromModelDistribution(recordId, msg.sender);
         _removeFromNodeDeployment(recordId, msg.sender);
 
         emit ModelRemoved(msg.sender, recordId);
     }
 
-    function getModelDistribution(uint256 recordId) public view returns (address[] memory) {
+    function getModelDistribution(
+        uint256 recordId
+    ) external view returns (address[] memory) {
         return modelDistribution[recordId];
     }
 
-    function getNodeDeployment(address node) public view returns (uint256[] memory) {
+    function getNodeDeployment(
+        address node
+    ) external view returns (uint256[] memory) {
         return nodeDeployment[node];
     }
 
@@ -93,7 +101,7 @@ contract AIModels {
     }
 
     function _removeFromModelDistribution(
-        uint256 recordId, 
+        uint256 recordId,
         address node
     ) internal {
         address[] storage nodes = modelDistribution[recordId];

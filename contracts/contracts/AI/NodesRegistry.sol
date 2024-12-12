@@ -32,7 +32,7 @@ abstract contract NodesRegistry is Initializable {
 
     event NodeRegistered(address indexed miner, address identifier, uint256 time, string aliasIdentifier);
     event NodeDeregistered(address indexed identifier, uint256 time, string aliasIdentifier);
-    event authorized(address indexed owner, address indexed spender);
+    event Authorized(address indexed owner, address indexed spender);
 
     function _nodesRegistry_initialize(
         address[]   calldata _identifiers,
@@ -97,15 +97,15 @@ abstract contract NodesRegistry is Initializable {
         Node storage node = nodes[owner];
         require(node.active, "None such node");
         authorizations[owner] = authorizedPerson;
-        emit authorized(owner, authorizedPerson);
+        emit Authorized(owner, authorizedPerson);
     }
 
-    function _cancel(        
+    function _cancel(
         address owner
     ) internal {
         require(owner != address(0), "Invalid owner");
         authorizations[owner] = address(0);
-        emit authorized(owner, address(0));
+        emit Authorized(owner, address(0));
     }
 
     function _check(
@@ -287,7 +287,9 @@ abstract contract NodesRegistry is Initializable {
         emit NodeRegistered(wallet, identifier, block.timestamp, aliasIdentifier);
     }
 
-    function _active(address identifier) internal {
+    function _active(
+        address identifier
+    ) internal {
         Node storage node = nodes[identifier];
         require(node.identifier != address(0), "Identifier not exist");
         if (!node.active) {
@@ -295,5 +297,7 @@ abstract contract NodesRegistry is Initializable {
         }
     }
 
-    function _checkRegister(address candidate) internal virtual;
+    function _checkRegister(
+        address candidate
+    ) internal virtual;
 }

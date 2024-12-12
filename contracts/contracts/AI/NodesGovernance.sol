@@ -71,7 +71,11 @@ contract NodesGovernance is NodesRegistry{
         roundDurationTime =  _roundDurationTime;
     }
 
-    function _pickValidators(address candidate, uint256 roundId, bytes memory random) internal {
+    function _pickValidators(
+        address candidate,
+        uint256 roundId,
+        bytes memory random
+    ) internal {
         uint256 numOfValidators = 0;
         
         candidatePerRound[roundId].candidateSets.push(candidate);
@@ -82,7 +86,7 @@ contract NodesGovernance is NodesRegistry{
             completed: false
         });
 
-        for (uint256 i = 0; numOfValidators < VALIDATOR_PER_CANDIDATE; i++) {
+        for (uint256 i = 0; numOfValidators < VALIDATOR_PER_CANDIDATE /* && i < 2 * length() */; i++) {
             uint256 validatorIndex = uint256(keccak256(abi.encodePacked(random, i))) % length();
             Node memory validator = at(validatorIndex);
             if (!validator.active) {
@@ -100,14 +104,14 @@ contract NodesGovernance is NodesRegistry{
     }
 
     function _pickCandidateValidators(
-        uint256 detectId, 
-        uint256 roundId, 
+        uint256 detectId,
+        uint256 roundId,
         uint256 expectFinishTime
     ) internal {
         uint256 numOfCandidate = 0;
         RoundRange storage range = detectPeriods[detectId];
 
-        for (uint256 i = 0; numOfCandidate < MIN_CANDIDATE; i++) {
+        for (uint256 i = 0; numOfCandidate < MIN_CANDIDATE /* && i < 2 * length() */; i++) {
             bytes memory randomCandidate = abi.encodePacked(block.timestamp, blockhash(block.number - 1), i);
             uint256 candidateIndex = uint256(keccak256(randomCandidate)) % length();
             Node memory candidate = at(candidateIndex);
@@ -141,7 +145,9 @@ contract NodesGovernance is NodesRegistry{
         return count;
     }
 
-    function _checkRegister(address candidate) internal override {
+    function _checkRegister(
+        address candidate
+    ) internal override {
         uint256 currentTime = block.timestamp;
 
         currentRoundId++;
@@ -254,15 +260,14 @@ contract NodesGovernance is NodesRegistry{
         uint256 roundsInPeriod = range.endId - range.startId + 1;
         
         for (uint256 i = 0; i < length(); i++){
-            address identifier = at(i).identifier;
-            address wallet = at(i).wallet;
-            if ((!at(i).active) || (at(i).registrationTime > range.startTime)) {
+            Node memory candidate = at(i);
+            if ((!candidate.active) || (candidate.registrationTime > range.startTime)) {
                 continue;
             }
 
-            nodes.push(identifier);
-            stateOfNodes[detectPeriodId][identifier] = NodeState(
-                0, 0, uint128(roundsInPeriod), wallet, identifier);
+            nodes.push(candidate.identifier);
+            stateOfNodes[detectPeriodId][candidate.identifier] = NodeState(
+                0, 0, uint128(roundsInPeriod), candidate.wallet, candidate.identifier);
         }
 
         for (uint256 i = range.startId; i <= range.endId; i++) {
