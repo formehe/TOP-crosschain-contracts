@@ -31,6 +31,7 @@ abstract contract NodesRegistry is Initializable {
     address public allocator;
 
     event NodeRegistered(address indexed miner, address identifier, uint256 time, string aliasIdentifier);
+    event NodeActived(address indexed miner, address identifier, uint256 time, string aliasIdentifier);
     event NodeDeregistered(address indexed identifier, uint256 time, string aliasIdentifier);
     event Authorized(address indexed owner, address indexed spender);
 
@@ -255,7 +256,7 @@ abstract contract NodesRegistry is Initializable {
         string[]  calldata gpuTypes,
         uint256[] calldata gpuNums
     ) internal {
-        require(gpuTypes.length == gpuNums.length, "Invalid GPU data");
+        require(gpuTypes.length == gpuNums.length && gpuNums.length != 0, "Invalid GPU data");
         require(wallet != address(0) && (identifier != address(0)) 
             && (bytes(aliasIdentifier).length > 0), "Invalid wallet or identifier");
 
@@ -294,6 +295,7 @@ abstract contract NodesRegistry is Initializable {
         require(node.identifier != address(0), "Identifier not exist");
         if (!node.active) {
             node.active = true;
+            emit NodeActived(node.wallet, node.identifier, block.timestamp, node.aliasIdentifier);
         }
     }
 

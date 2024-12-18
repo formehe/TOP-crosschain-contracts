@@ -14,3 +14,9 @@ struct NodeComputeUsed {
     string  gpuType;
     uint256 used;
 }
+
+struct Signature {
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
+}

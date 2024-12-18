@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "./NodesRegistry.sol";
 
 contract AIModels {
-    struct UploadRecord {
-        uint256 recordId;
+    struct UploadModel {
+        uint256 modelId;
         string  modelName;
         string  modelVersion;
         address uploader;
@@ -13,16 +13,16 @@ contract AIModels {
     }
 
     NodesRegistry public registry;
-    mapping(string => uint256) public modelRecordIds;
-    mapping(uint256 => UploadRecord) public uploadRecords;
-    uint256 public nextRecordId = 1;
+    mapping(string => uint256) public modelIds;
+    mapping(uint256 => UploadModel) public uploadModels;
+    uint256 public nextModelId = 1;
 
     mapping(uint256 => address[]) public modelDistribution;
     mapping(address => uint256[]) public nodeDeployment;
 
-    event UploadRecorded(uint256 indexed recordId, address indexed uploader, string modelName, string modelVersion, string modelInfo);
-    event ModelDeployed(address indexed node, uint256 indexed recordId);
-    event ModelRemoved(address indexed node, uint256 indexed recordId);
+    event UploadModeled(uint256 indexed modelId, address indexed uploader, string modelName, string modelVersion, string modelInfo);
+    event ModelDeployed(address indexed node, uint256 indexed modelId);
+    event ModelRemoved(address indexed node, uint256 indexed modelId);
 
     constructor(address _registry) {
         require(_registry != address(0), "Invalid registry address");
@@ -33,51 +33,51 @@ contract AIModels {
         string calldata modelName,
         string calldata modelVersion,
         string calldata modelInfo
-    ) external returns(uint256 recordId) {
+    ) external returns(uint256 modelId) {
         string memory model = _modelId(modelName, modelVersion);
-        require(modelRecordIds[model] == 0, "Model exist");
+        require(modelIds[model] == 0, "Model exist");
 
-        uploadRecords[nextRecordId] = UploadRecord({
-            recordId: nextRecordId,
+        uploadModels[nextModelId] = UploadModel({
+            modelId: nextModelId,
             modelName: modelName,
             modelVersion: modelVersion,
             uploader: msg.sender,
             extendInfo: modelInfo
         });
 
-        modelRecordIds[model] = nextRecordId;
+        modelIds[model] = nextModelId;
 
-        emit UploadRecorded(nextRecordId, msg.sender, modelName, modelVersion, modelInfo);
-        recordId = nextRecordId;
-        nextRecordId++;
+        emit UploadModeled(nextModelId, msg.sender, modelName, modelVersion, modelInfo);
+        modelId = nextModelId;
+        nextModelId++;
     }
 
     function reportDeployment(
-        uint256 recordId
+        uint256 modelId
     ) external {
         require(registry.check(msg.sender), "Node is not active");
-        UploadRecord storage record = uploadRecords[recordId];
-        require(record.recordId != 0, "Model is not exist");
+        UploadModel storage record = uploadModels[modelId];
+        require(record.modelId != 0, "Model is not exist");
         
-        _addFromModelDistribution(recordId, msg.sender);
-        _addFromNodeDeployment(recordId, msg.sender);
+        _addFromModelDistribution(modelId, msg.sender);
+        _addFromNodeDeployment(modelId, msg.sender);
 
-        emit ModelDeployed(msg.sender, recordId);
+        emit ModelDeployed(msg.sender, modelId);
     }
 
     function removeDeployment(
-        uint256 recordId
+        uint256 modelId
     ) external {
-        _removeFromModelDistribution(recordId, msg.sender);
-        _removeFromNodeDeployment(recordId, msg.sender);
+        _removeFromModelDistribution(modelId, msg.sender);
+        _removeFromNodeDeployment(modelId, msg.sender);
 
-        emit ModelRemoved(msg.sender, recordId);
+        emit ModelRemoved(msg.sender, modelId);
     }
 
     function getModelDistribution(
-        uint256 recordId
+        uint256 modelId
     ) external view returns (address[] memory) {
-        return modelDistribution[recordId];
+        return modelDistribution[modelId];
     }
 
     function getNodeDeployment(
@@ -87,24 +87,24 @@ contract AIModels {
     }
 
     function _addFromModelDistribution(
-        uint256 recordId, 
+        uint256 modelId, 
         address node
     ) internal {
-        address[] storage nodes = modelDistribution[recordId];
+        address[] storage nodes = modelDistribution[modelId];
         for (uint256 i = 0; i < nodes.length; i++) {
             if (nodes[i] == node) {
                 revert("Model distribution already exist");
             }
         }
 
-        modelDistribution[recordId].push(msg.sender);
+        modelDistribution[modelId].push(msg.sender);
     }
 
     function _removeFromModelDistribution(
-        uint256 recordId,
+        uint256 modelId,
         address node
     ) internal {
-        address[] storage nodes = modelDistribution[recordId];
+        address[] storage nodes = modelDistribution[modelId];
         for (uint256 i = 0; i < nodes.length; i++) {
             if (nodes[i] == node) {
                 nodes[i] = nodes[nodes.length - 1];
@@ -115,26 +115,26 @@ contract AIModels {
     }
 
     function _addFromNodeDeployment(
-        uint256 recordId,
+        uint256 modelId,
         address node
     ) internal {
         uint256[] storage models = nodeDeployment[node];
         for (uint256 i = 0; i < models.length; i++) {
-            if (models[i] == recordId) {
+            if (models[i] == modelId) {
                 revert("Node deployment already exist");
             }
         }
 
-        nodeDeployment[msg.sender].push(recordId);
+        nodeDeployment[msg.sender].push(modelId);
     }
 
     function _removeFromNodeDeployment(
-        uint256 recordId,
+        uint256 modelId,
         address node
     ) internal {
         uint256[] storage models = nodeDeployment[node];
         for (uint256 i = 0; i < models.length; i++) {
-            if (models[i] == recordId) {
+            if (models[i] == modelId) {
                 models[i] = models[models.length - 1];
                 models.pop();
                 break;
