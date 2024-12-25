@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { AddressZero } = require("ethers").constants
 
 describe("AIWorkload", function () {
   let AIWorkload, aiWorkload;
@@ -24,6 +25,8 @@ describe("AIWorkload", function () {
     AIWorkload = await ethers.getContractFactory("AIWorkload");
     aiWorkload = await AIWorkload.deploy(nodesRegistry.address);
     await aiWorkload.deployed();
+
+    await expect(AIWorkload.deploy(AddressZero)).to.be.revertedWith("Invalid registry")
 
     await nodesRegistry.nodesGovernance_initialize(IDENTIFIERS, ALIAS_IDENTIFIERS, WALLETS, gpuTypes, gpuNums, addr1.address, ROUND_DURATION_TIME)
   });

@@ -86,7 +86,7 @@ contract NodesGovernance is NodesRegistry{
             completed: false
         });
 
-        for (uint256 i = 0; numOfValidators < VALIDATOR_PER_CANDIDATE /* && i < 2 * length() */; i++) {
+        for (uint256 i = 0; numOfValidators < VALIDATOR_PER_CANDIDATE && i < 2 * length() ; i++) {
             uint256 validatorIndex = uint256(keccak256(abi.encodePacked(random, i))) % length();
             Node memory validator = at(validatorIndex);
             if (!validator.active) {
@@ -165,8 +165,11 @@ contract NodesGovernance is NodesRegistry{
         candidatePerRound[currentRoundId].numOfNodes = _lenOfAvailableNodes(currentDetectCircleId);
         _pickValidators(candidate, currentRoundId, 
             abi.encodePacked(block.timestamp, blockhash(block.number - 1), uint256(1)));
-
-        emit ValidationStarted(currentRoundId, currentTime + roundDurationTime, candidate, validatorsPerCandidate[currentRoundId][candidate]);
+        if (validatorsPerCandidate[currentRoundId][candidate].length == 0) {
+            _active(candidate);
+        } else {
+            emit ValidationStarted(currentRoundId, currentTime + roundDurationTime, candidate, validatorsPerCandidate[currentRoundId][candidate]);
+        }
     }
 
     // 开始新一轮验证
