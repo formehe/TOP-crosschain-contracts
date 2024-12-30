@@ -5,7 +5,7 @@ require('hardhat-deploy-ethers')
 require('solidity-coverage')
 require("@nomiclabs/hardhat-etherscan")
 require('hardhat-abi-exporter')
-require('@solarity/hardhat-gobind');
+require('@solarity/hardhat-gobind')
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html

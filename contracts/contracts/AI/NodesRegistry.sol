@@ -30,8 +30,8 @@ abstract contract NodesRegistry is Initializable {
     mapping(address => address) private authorizations;
     address public allocator;
 
-    event NodeRegistered(address indexed miner, address identifier, uint256 time, string aliasIdentifier);
-    event NodeActived(address indexed miner, address identifier, uint256 time, string aliasIdentifier);
+    event NodeRegistered(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
+    event NodeActived(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
     event NodeDeregistered(address indexed identifier, uint256 time, string aliasIdentifier);
     event Authorized(address indexed owner, address indexed spender);
 
