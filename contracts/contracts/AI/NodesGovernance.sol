@@ -5,8 +5,8 @@ import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 
 contract NodesGovernance is NodesRegistry{
-    uint256 public detectDurationTime;
-    uint256 public roundDurationTime;
+    uint256 public detectDurationTime = 24 * 3 minutes;
+    uint256 public roundDurationTime = 3 minutes;
 
     enum VoteType {None, Active, Against, For}
 

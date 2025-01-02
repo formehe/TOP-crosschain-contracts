@@ -64,7 +64,7 @@ abstract contract NodesRegistry is Initializable {
         uint256[] calldata gpuNums
     ) public {
         _registerNode(wallet, msg.sender, aliasIdentifier, gpuTypes, gpuNums);
-        _checkRegister(wallet);
+        _checkRegister(msg.sender);
     }
 
     function deregisterNode(
