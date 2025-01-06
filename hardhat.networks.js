@@ -28,12 +28,20 @@ const networks = {
     accounts: [`0xce9f7be01bacde7ea1bdd3e334daf53a4de663c00cf1891785bc271f06b82ed0`]
   },
 
-  topTest:{
+  topTest1:{
     url: 'http://192.168.50.167:8080',
     blockGasLimit: 200000000,
     allowUnlimitedContractSize: true,
     chainId: 1023,
     accounts: [`0x6537318dcecc07ecc3c0b99558f4a7b5d5a50b6c4d7fed8c75112919a473700a`]
+  },
+
+  topTest2:{
+    url: 'http://159.135.194.94:28080',
+    blockGasLimit: 200000000,
+    allowUnlimitedContractSize: true,
+    chainId: 1023,
+    accounts: [`0x54639e47984fafe6355316dc381a616c838e6acf846869001868b809b6158f5f`]
   },
 
   localhost: {
