@@ -2,11 +2,15 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
 import "hardhat/console.sol";
 
 contract AIWorkload {
+    using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.UintSet;
+
     struct Workload {
         uint256 epochId;
         uint256 workload;
@@ -21,16 +25,28 @@ contract AIWorkload {
         mapping(uint256 => Workload) workloads;
     }
 
-    mapping(uint256 => Session) public sessions;
+    struct WorkLoad {
+        uint256 totalWorkload;
+        uint256 settledWorkload;
+    }
+
+    mapping(uint256 => Session)  public sessions;
     NodesRegistry public registry;
-    mapping(address => uint256) public totalWorkload;
-    mapping(address => uint256) public totalWorkReports;
+    mapping(address => WorkLoad) internal totalWorkerWorkload;
+    EnumerableSet.AddressSet private workers;
+    mapping(uint256 => WorkLoad) internal totalModelWorkload;
+    EnumerableSet.UintSet private models;
+    mapping(address => WorkLoad) internal totalWorkReports;
+    EnumerableSet.AddressSet private reporters;
+    uint256 public settlementInterval = 1 hours;
+    uint256 public lastSettlementTime;
 
     event WorkloadReported(uint256 indexed sessionId, address indexed reporter, address worker, uint256 epochId, uint256 workload, uint256 modelId);
 
     constructor(address _registry) {
         require(_registry != address(0), "Invalid registry");
         registry = NodesRegistry(_registry);
+        lastSettlementTime = block.timestamp;
     }
 
     function _isValidSignature(
@@ -110,9 +126,19 @@ contract AIWorkload {
             worker: worker
         });
 
+        WorkLoad storage workerWorkLoad = totalWorkerWorkload[worker];
+        workerWorkLoad.totalWorkload += workload;
+        workers.add(worker);
+
+        WorkLoad storage modelWorkLoad = totalModelWorkload[modelId];
+        modelWorkLoad.totalWorkload += workload;
+        models.add(modelId);
+
+        WorkLoad storage reporterWorkLoad = totalWorkReports[msg.sender];
+        reporterWorkLoad.totalWorkload += workload;
+        reporters.add(msg.sender);
+
         session.lastEpochId = epochId;
-        totalWorkload[worker] += workload;
-        totalWorkReports[msg.sender] += workload;
         emit WorkloadReported(sessionId, msg.sender, worker, epochId, workload, modelId);
     }
 
@@ -124,15 +150,52 @@ contract AIWorkload {
         return sessions[sessionId].lastEpochId;
     }
 
-    function getTotalWorkload(
+    function getTotalWorkerWorkload(
         address node
-    ) external view returns (uint256) {
-        return totalWorkload[node];
+    ) external view returns (WorkLoad memory) {
+        return totalWorkerWorkload[node];
     }
 
     function getTotalWorkReport(
-        address node
-    ) external view returns (uint256) {
-        return totalWorkReports[node];
+        address reporter
+    ) external view returns (WorkLoad memory) {
+        return totalWorkReports[reporter];
+    }
+
+    function getTotalModelWorkload(
+        uint256 modelId
+    ) external view returns (WorkLoad memory) {
+        return totalModelWorkload[modelId];
+    }
+
+    function settleRewards() external {
+        require(
+            block.timestamp >= lastSettlementTime + settlementInterval,
+            "Settlement not due yet"
+        );
+
+        for (uint256 i = 0; i < workers.length(); i++) {
+            WorkLoad storage workload = totalWorkerWorkload[workers.at(i)];
+            if (workload.totalWorkload > workload.settledWorkload) {
+                //结算
+            }
+            
+        }
+
+        for (uint256 i = 0; i < models.length(); i++) {
+            WorkLoad storage workload = totalModelWorkload[models.at(i)];
+            if (workload.totalWorkload > workload.settledWorkload) {
+                //结算
+            }
+        }
+
+        for (uint256 i = 0; i < reporters.length(); i++) {
+            WorkLoad storage workload = totalWorkReports[reporters.at(i)];
+            if (workload.totalWorkload > workload.settledWorkload) {
+                //结算
+            }
+        }
+
+        lastSettlementTime = block.timestamp;
     }
 }

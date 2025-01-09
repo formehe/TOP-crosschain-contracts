@@ -10,11 +10,13 @@ contract AIModels {
         string  modelVersion;
         address uploader;
         string  extendInfo;
+        uint256 timestamp;
     }
 
     NodesRegistry public registry;
     mapping(string => uint256) public modelIds;
     mapping(uint256 => UploadModel) public uploadModels;
+    mapping(address => uint256) public modelStakes;
     uint256 public nextModelId = 1;
 
     mapping(uint256 => address[]) public modelDistribution;
@@ -27,6 +29,12 @@ contract AIModels {
     constructor(address _registry) {
         require(_registry != address(0), "Invalid registry address");
         registry = NodesRegistry(_registry);
+    }
+
+    function stake() payable external{
+        if (msg.value != 0) {
+            modelStakes[msg.sender] += msg.value;
+        }
     }
 
     function recordModelUpload(
@@ -42,7 +50,8 @@ contract AIModels {
             modelName: modelName,
             modelVersion: modelVersion,
             uploader: msg.sender,
-            extendInfo: modelInfo
+            extendInfo: modelInfo,
+            timestamp : block.timestamp
         });
 
         modelIds[model] = nextModelId;

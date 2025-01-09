@@ -78,8 +78,8 @@ describe("AIWorkload", function () {
         .to.emit(aiWorkload, "WorkloadReported")
         .withArgs(1,addr1.address, addr3.address, 1, workload, 1);
 
-      const totalWorkload = await aiWorkload.getTotalWorkload(addr3.address);
-      expect(totalWorkload).to.equal(workload);
+      const totalWorkload = await aiWorkload.getTotalWorkerWorkload(addr3.address);
+      expect(totalWorkload.totalWorkload).to.equal(workload);
     });
 
     it("should fail if epochId is out of order", async function () {
@@ -201,8 +201,8 @@ describe("AIWorkload", function () {
       ];
       await aiWorkload.connect(addr1).reportWorkload(addr3.address, 200, 1, 1, 2, signatures);
 
-      const recentWorkload = await aiWorkload.getTotalWorkload(addr3.address);
-      expect(recentWorkload).to.equal(300);
+      const recentWorkload = await aiWorkload.getTotalWorkerWorkload(addr3.address);
+      expect(recentWorkload.totalWorkload).to.equal(300);
     });
   });
 });

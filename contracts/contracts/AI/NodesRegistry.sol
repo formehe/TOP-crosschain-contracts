@@ -14,6 +14,7 @@ abstract contract NodesRegistry is Initializable {
         bool    active;
         ComputeAvailable[] gpus;
         address wallet;
+        uint256 stake;
     }
 
     struct ComputeAvailable {
@@ -62,7 +63,7 @@ abstract contract NodesRegistry is Initializable {
         string    calldata aliasIdentifier,
         string[]  calldata gpuTypes,
         uint256[] calldata gpuNums
-    ) public {
+    ) public payable {
         _registerNode(wallet, msg.sender, aliasIdentifier, gpuTypes, gpuNums);
         _checkRegister(msg.sender);
     }
@@ -269,6 +270,7 @@ abstract contract NodesRegistry is Initializable {
         node.registrationTime = block.timestamp;
         node.wallet = wallet;
         node.aliasIdentifier = aliasIdentifier;
+        node.stake = msg.value;
 
         for (uint256 i = 0; i < gpuTypes.length; i++) {
             node.gpus.push(ComputeAvailable({
