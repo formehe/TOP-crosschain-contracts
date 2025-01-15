@@ -37,7 +37,11 @@ describe("NodesRegistry", function () {
         const erc20 = await ERC20sample.deploy();
         await erc20.deployed();
 
-        await nodesRegistry.nodesRegistryImpl_initialize(nodeInfos, addr5.address, erc20.address)
+        const AssetManagement = await ethers.getContractFactory("AssetManagement");
+        const assetManagement = await AssetManagement.deploy();
+        await assetManagement.deployed();
+
+        await nodesRegistry.nodesRegistryImpl_initialize(nodeInfos, addr5.address, assetManagement.address)
     });
 
     describe("owner", function () {

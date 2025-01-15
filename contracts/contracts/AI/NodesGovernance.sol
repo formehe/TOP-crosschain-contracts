@@ -59,9 +59,9 @@ contract NodesGovernance is NodesRegistry{
         NodeInfo[] calldata _nodesInfos,
         address             _allocator,
         uint256             _roundDurationTime,
-        address             _token
+        address             _stakeToken
     ) external initializer {
-        NodesRegistry._nodesRegistry_initialize(_nodesInfos, _allocator, _token);
+        NodesRegistry._nodesRegistry_initialize(_nodesInfos, _allocator, _stakeToken);
 
         currentRoundStartTime = block.timestamp;
         detectDurationTime = 24 * _roundDurationTime;

@@ -56,26 +56,39 @@ describe("AIWorkload", function () {
       }
     ];
 
-    // 部署合约
+    const AssetManagement = await ethers.getContractFactory("AssetManagement");
+    const assetManagement = await AssetManagement.deploy();
+    await assetManagement.deployed();
+
     const NodesRegistry = await ethers.getContractFactory("NodesGovernance");
     nodesRegistry = await NodesRegistry.deploy();
     await nodesRegistry.deployed();
 
+    const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
+    aiModelUpload = await AIModelUploadFactory.deploy(nodesGovernance.address, assetManagement.address);
+    await aiModelUpload.deployed();
+
+    const modelName = "TestModel";
+    const modelVersion = "v1.0";
+    const modelInfo = "Test model description";
+
+    await aiModelUpload.recordModelUpload(modelName, modelVersion, modelInfo);
+
     AIWorkload = await ethers.getContractFactory("AIWorkload");
-    aiWorkload = await AIWorkload.deploy(nodesRegistry.address);
+    aiWorkload = await AIWorkload.deploy(nodesRegistry.address, aiModelUpload.address, assetManagement.address);
     await aiWorkload.deployed();
 
-    await expect(AIWorkload.deploy(AddressZero)).to.be.revertedWith("Invalid registry")
+    await expect(AIWorkload.deploy(AddressZero, AddressZero, AddressZero)).to.be.revertedWith("Invalid node registry")
 
     const ERC20sample = await ethers.getContractFactory("ERC20TokenSample");
     const erc20 = await ERC20sample.deploy();
     await erc20.deployed();
-    await nodesRegistry.nodesGovernance_initialize(nodeInfos, addr1.address, ROUND_DURATION_TIME, erc20.address)
+    await nodesRegistry.nodesGovernance_initialize(nodeInfos, addr1.address, ROUND_DURATION_TIME, assetManagement.address)
   });
 
   describe("Initialization", function () {
     it("Should initialize with correct registry address", async function () {
-      expect(await aiWorkload.registry()).to.equal(nodesRegistry.address);
+      expect(await aiWorkload.nodeRegistry()).to.equal(nodesRegistry.address);
     });
   });
 

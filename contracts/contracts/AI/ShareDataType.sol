@@ -41,9 +41,9 @@ struct NodeSettleWorkload{
 }
 
 struct NodeInfo{
-    address identifier;
-    string  aliasIdentifier;
-    address wallet;
-    string[] gpuTypes;
+    address   identifier;
+    string    aliasIdentifier;
+    address   wallet;
+    string[]  gpuTypes;
     uint256[] gpuNums;
 }

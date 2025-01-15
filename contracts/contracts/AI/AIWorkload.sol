@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./ShareDataType.sol";
 import "./NodesRegistry.sol";
-import "hardhat/console.sol";
+import "./AIModels.sol";
 
 contract AIWorkload {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -31,7 +31,8 @@ contract AIWorkload {
     }
 
     mapping(uint256 => Session)  public sessions;
-    NodesRegistry public registry;
+    NodesRegistry public nodeRegistry;
+    AIModels public modelRegistry;
     mapping(address => WorkLoad) internal totalWorkerWorkload;
     EnumerableSet.AddressSet private workers;
     mapping(uint256 => WorkLoad) internal totalModelWorkload;
@@ -40,13 +41,18 @@ contract AIWorkload {
     EnumerableSet.AddressSet private reporters;
     uint256 public settlementInterval = 1 hours;
     uint256 public lastSettlementTime;
+    IStake  public stakeToken;
 
     event WorkloadReported(uint256 indexed sessionId, address indexed reporter, address worker, uint256 epochId, uint256 workload, uint256 modelId);
 
-    constructor(address _registry) {
-        require(_registry != address(0), "Invalid registry");
-        registry = NodesRegistry(_registry);
+    constructor(address _nodeRegistry, address _modelRegistry, address _stakeToken) {
+        require(_nodeRegistry != address(0), "Invalid node registry");
+        require(_modelRegistry != address(0), "Invalid model registry");
+        require(_stakeToken != address(0), "Invalid stake token");
+        nodeRegistry = NodesRegistry(_nodeRegistry);
+        modelRegistry = AIModels(_modelRegistry);
         lastSettlementTime = block.timestamp;
+        stakeToken = IStake(_stakeToken);
     }
 
     function _isValidSignature(
@@ -61,10 +67,10 @@ contract AIWorkload {
         bool containsWorker;
 
         for (uint256 i = 0; i < signatures.length; i++) {
-            bool duplicate;
+            bool duplicate = false;
             bytes memory signatureBytes = abi.encodePacked(signatures[i].r, signatures[i].s, signatures[i].v);
             (address _address,) = ECDSA.tryRecover(ECDSA.toEthSignedMessageHash(content), signatureBytes);
-            if (!registry.get(_address).active) {
+            if (!nodeRegistry.get(_address).active) {
                 continue;
             }
 
@@ -111,8 +117,10 @@ contract AIWorkload {
         require(workload > 0, "Workload must be greater than zero");
         require(signatures.length >= 3, "Length of signatures must more than 3");
 
-        bytes memory content = abi.encode(worker, workload, modelId, sessionId, epochId);
-        require(_isValidSignature(worker, msg.sender, content, signatures), "Invalid signature");
+        (uint256 tmpModelId, , , , ,) = modelRegistry.uploadModels(modelId);
+        require(tmpModelId == modelId, "Model not exist");
+
+        require(_isValidSignature(worker, msg.sender, abi.encode(worker, workload, modelId, sessionId, epochId), signatures), "Invalid signature");
 
         Session storage session = sessions[sessionId];
 

@@ -62,10 +62,14 @@ describe("NodesGovernance Contract", function () {
         nodesGovernance = await NodesGovernanceFactory.deploy();
         await nodesGovernance.deployed();
 
+        const AssetManagement = await ethers.getContractFactory("AssetManagement");
+        const assetManagement = await AssetManagement.deploy();
+        await assetManagement.deployed();
+
         const ERC20sample = await ethers.getContractFactory("ERC20TokenSample");
         const erc20 = await ERC20sample.deploy();
         await erc20.deployed();
-        await nodesGovernance.nodesGovernance_initialize(nodeInfos, verifier.address, ROUND_DURATION_TIME, erc20.address)
+        await nodesGovernance.nodesGovernance_initialize(nodeInfos, verifier.address, ROUND_DURATION_TIME, assetManagement.address)
     });
 
     it("should start a new validation round", async function () {

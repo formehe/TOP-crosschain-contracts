@@ -7,9 +7,9 @@ contract NodesRegistryImpl is NodesRegistry {
     function nodesRegistryImpl_initialize(
         NodeInfo[] calldata _nodesInfos,
         address _allocator,
-        address _token
+        address _stakeToken
     ) external initializer {
-        _nodesRegistry_initialize(_nodesInfos, _allocator, _token);
+        _nodesRegistry_initialize(_nodesInfos, _allocator, _stakeToken);
     }
 
     function _checkRegister(

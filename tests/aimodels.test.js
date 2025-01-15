@@ -57,6 +57,10 @@ describe("AIModels Contract", function () {
         const ERC20sample = await ethers.getContractFactory("ERC20TokenSample");
         const erc20 = await ERC20sample.deploy();
         await erc20.deployed();
+        
+        const AssetManagement = await ethers.getContractFactory("AssetManagement");
+        const assetManagement = await AssetManagement.deploy();
+        await assetManagement.deployed();
 
         // 部署合约
         const NodesGovernanceFactory = await ethers.getContractFactory("NodesGovernance");
@@ -64,10 +68,10 @@ describe("AIModels Contract", function () {
         await nodesGovernance.deployed();
         
         const AIModelUploadFactory = await ethers.getContractFactory("AIModels");
-        aiModelUpload = await AIModelUploadFactory.deploy(nodesGovernance.address);
+        aiModelUpload = await AIModelUploadFactory.deploy(nodesGovernance.address, assetManagement.address);
         await aiModelUpload.deployed();
 
-        await nodesGovernance.nodesGovernance_initialize(nodeInfos, aiModelUpload.address, ROUND_DURATION_TIME, erc20.address)
+        await nodesGovernance.nodesGovernance_initialize(nodeInfos, aiModelUpload.address, ROUND_DURATION_TIME, assetManagement.address)
     });
 
     it("Should initialize contract with correct default values", async function () {

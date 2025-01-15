@@ -13,10 +13,9 @@ contract AIModels {
     mapping(uint256 => UploadModel) public uploadModels;
 
     mapping(uint256 => ModelEvaluation) public modelEvaluations;
-
-    mapping(address => uint256) public modelUploadStakes;
-    mapping(address => uint256) public modelUsedStakes;
     uint256 public nextModelId = 1;
+
+    IStake  public stakeToken;
 
     mapping(uint256 => address[]) public modelDistribution;
     mapping(address => uint256[]) public nodeDeployment;
@@ -24,26 +23,12 @@ contract AIModels {
     event UploadModeled(uint256 indexed modelId, address indexed uploader, string modelName, string modelVersion, string modelInfo);
     event ModelDeployed(address indexed node, uint256 indexed modelId);
     event ModelRemoved(address indexed node, uint256 indexed modelId);
-    event ModelUploadStaked(address indexed uploader, uint256 indexed stake);
-    event ModelUsedStaked(address indexed modelUser, uint256 indexed stake);
-    event ModelUploadUnstaked(address indexed uploader, uint256 indexed stake);
-    event ModelUsedUnstaked(address indexed modelUser, uint256 indexed stake);
 
-    constructor(address _registry) {
+    constructor(address _registry, address _stakeToken) {
         require(_registry != address(0), "Invalid quantity of registry address");
+        require(_stakeToken != address(0), "Invalid stake token");
         registry = NodesRegistry(_registry);
-    }
-
-    function stakeModelUpload() payable external{
-        require(msg.value != 0, "Invalid quantity of model upload stake");
-        modelUploadStakes[msg.sender] += msg.value;
-        emit ModelUploadStaked(msg.sender, msg.value);
-    }
-
-    function stakeModelUsed() payable external{
-        require(msg.value != 0, "Invalid model used stake");
-        modelUsedStakes[msg.sender] += msg.value;
-        emit ModelUsedStaked(msg.sender, msg.value);
+        stakeToken = IStake(_stakeToken);
     }
 
     function recordModelUpload(

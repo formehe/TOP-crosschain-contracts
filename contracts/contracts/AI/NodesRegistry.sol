@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./ShareDataType.sol";
+import "./IStake.sol";
 
 abstract contract NodesRegistry is Initializable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -30,6 +31,7 @@ abstract contract NodesRegistry is Initializable {
     mapping(string => ComputeAvailable) public gpuSummary;
     EnumerableSet.AddressSet private identifiers;
     address public allocator;
+    IStake  public stakeToken;
 
     event NodeRegistered(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
     event NodeActived(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
@@ -41,7 +43,7 @@ abstract contract NodesRegistry is Initializable {
     function _nodesRegistry_initialize(
         NodeInfo[] calldata _nodesInfos,
         address     _allocator,
-        address     _token
+        address     _stakeToken
     ) internal onlyInitializing {
         for (uint256 i = 0; i < _nodesInfos.length; i++) {
             _registerNode(_nodesInfos[i].wallet, _nodesInfos[i].identifier, _nodesInfos[i].aliasIdentifier, _nodesInfos[i].gpuTypes, _nodesInfos[i].gpuNums);
@@ -50,6 +52,8 @@ abstract contract NodesRegistry is Initializable {
 
         require(_allocator != address(0), "Invalid allocator");
         allocator = _allocator;
+        require(_stakeToken != address(0), "Invalid stake token");
+        stakeToken = IStake(_stakeToken);
     }
 
     function registerNode(
