@@ -4,19 +4,18 @@ pragma solidity ^0.8.0;
 import "./NodesRegistry.sol";
 
 contract AIModels {
-    struct UploadModel {
-        uint256 modelId;
-        string  modelName;
-        string  modelVersion;
-        address uploader;
-        string  extendInfo;
-        uint256 timestamp;
+    struct ModelEvaluation {
+        uint256 parameter;
     }
 
     NodesRegistry public registry;
     mapping(string => uint256) public modelIds;
     mapping(uint256 => UploadModel) public uploadModels;
-    mapping(address => uint256) public modelStakes;
+
+    mapping(uint256 => ModelEvaluation) public modelEvaluations;
+
+    mapping(address => uint256) public modelUploadStakes;
+    mapping(address => uint256) public modelUsedStakes;
     uint256 public nextModelId = 1;
 
     mapping(uint256 => address[]) public modelDistribution;
@@ -25,16 +24,26 @@ contract AIModels {
     event UploadModeled(uint256 indexed modelId, address indexed uploader, string modelName, string modelVersion, string modelInfo);
     event ModelDeployed(address indexed node, uint256 indexed modelId);
     event ModelRemoved(address indexed node, uint256 indexed modelId);
+    event ModelUploadStaked(address indexed uploader, uint256 indexed stake);
+    event ModelUsedStaked(address indexed modelUser, uint256 indexed stake);
+    event ModelUploadUnstaked(address indexed uploader, uint256 indexed stake);
+    event ModelUsedUnstaked(address indexed modelUser, uint256 indexed stake);
 
     constructor(address _registry) {
-        require(_registry != address(0), "Invalid registry address");
+        require(_registry != address(0), "Invalid quantity of registry address");
         registry = NodesRegistry(_registry);
     }
 
-    function stake() payable external{
-        if (msg.value != 0) {
-            modelStakes[msg.sender] += msg.value;
-        }
+    function stakeModelUpload() payable external{
+        require(msg.value != 0, "Invalid quantity of model upload stake");
+        modelUploadStakes[msg.sender] += msg.value;
+        emit ModelUploadStaked(msg.sender, msg.value);
+    }
+
+    function stakeModelUsed() payable external{
+        require(msg.value != 0, "Invalid model used stake");
+        modelUsedStakes[msg.sender] += msg.value;
+        emit ModelUsedStaked(msg.sender, msg.value);
     }
 
     function recordModelUpload(

@@ -56,15 +56,12 @@ contract NodesGovernance is NodesRegistry{
     event SettlementResult(NodeState[] states, uint256 totalQuota);
 
     function nodesGovernance_initialize(
-        address[] calldata   _identifiers,
-        string[]  calldata   _aliasIdentifiers,
-        address[] calldata   _walletAccounts,
-        string[][]  calldata _gpuTypes,
-        uint256[][] calldata _gpuNums,
-        address              _allocator,
-        uint256              _roundDurationTime
+        NodeInfo[] calldata _nodesInfos,
+        address             _allocator,
+        uint256             _roundDurationTime,
+        address             _token
     ) external initializer {
-        NodesRegistry._nodesRegistry_initialize(_identifiers, _aliasIdentifiers, _walletAccounts, _gpuTypes, _gpuNums, _allocator);
+        NodesRegistry._nodesRegistry_initialize(_nodesInfos, _allocator, _token);
 
         currentRoundStartTime = block.timestamp;
         detectDurationTime = 24 * _roundDurationTime;

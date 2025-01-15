@@ -20,3 +20,30 @@ struct Signature {
     bytes32 s;
     uint8 v;
 }
+
+struct UploadModel {
+    uint256 modelId;
+    string  modelName;
+    string  modelVersion;
+    address uploader;
+    string  extendInfo;
+    uint256 timestamp;
+}
+
+struct ModelSettleWorkload{
+    uint256 modelId;
+    uint256 workload;
+}
+
+struct NodeSettleWorkload{
+    address node;
+    uint256 workload;
+}
+
+struct NodeInfo{
+    address identifier;
+    string  aliasIdentifier;
+    address wallet;
+    string[] gpuTypes;
+    uint256[] gpuNums;
+}

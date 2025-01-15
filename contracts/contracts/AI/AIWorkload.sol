@@ -168,32 +168,72 @@ contract AIWorkload {
         return totalModelWorkload[modelId];
     }
 
-    function settleRewards() external {
+    function settleRewards()
+        external 
+        returns (
+            NodeSettleWorkload[] memory settledWorkers, 
+            ModelSettleWorkload[] memory settledModels, 
+            NodeSettleWorkload[] memory settledReporters
+        ) 
+    {
         require(
             block.timestamp >= lastSettlementTime + settlementInterval,
             "Settlement not due yet"
         );
 
+        NodeSettleWorkload[] memory tmpSettledWorkers = new NodeSettleWorkload[](workers.length());
+        uint256 count = 0;
         for (uint256 i = 0; i < workers.length(); i++) {
             WorkLoad storage workload = totalWorkerWorkload[workers.at(i)];
-            if (workload.totalWorkload > workload.settledWorkload) {
-                //结算
+            if (workload.totalWorkload <= workload.settledWorkload) {
+                continue;
             }
-            
+
+            tmpSettledWorkers[count].node = workers.at(i);
+            tmpSettledWorkers[count].workload = workload.totalWorkload - workload.settledWorkload;
+
+            count++;
         }
 
+        settledWorkers = new NodeSettleWorkload[](count);
+        for (uint256 i = 0; i < count; i++) {
+            settledWorkers[i] = tmpSettledWorkers[i];
+        }
+
+        ModelSettleWorkload[] memory tmpSettledModels = new ModelSettleWorkload[](models.length());
+        count = 0;
         for (uint256 i = 0; i < models.length(); i++) {
             WorkLoad storage workload = totalModelWorkload[models.at(i)];
-            if (workload.totalWorkload > workload.settledWorkload) {
-                //结算
+            if (workload.totalWorkload <= workload.settledWorkload) {
+                continue;
             }
+
+            tmpSettledModels[count].modelId = models.at(i);
+            tmpSettledModels[count].workload = workload.totalWorkload - workload.settledWorkload;
+            count++;
         }
 
+        settledModels = new ModelSettleWorkload[](count);
+        for (uint256 i = 0; i < count; i++) {
+            settledModels[i] = tmpSettledModels[i];
+        }
+
+        NodeSettleWorkload[] memory tmpSettledReporters = new NodeSettleWorkload[](reporters.length());
+        count = 0;
         for (uint256 i = 0; i < reporters.length(); i++) {
             WorkLoad storage workload = totalWorkReports[reporters.at(i)];
-            if (workload.totalWorkload > workload.settledWorkload) {
-                //结算
+            if (workload.totalWorkload <= workload.settledWorkload) {
+                continue;
             }
+
+            tmpSettledReporters[count].node = reporters.at(i);
+            tmpSettledReporters[count].workload = workload.totalWorkload - workload.settledWorkload;
+            count++;
+        }
+
+        settledReporters = new NodeSettleWorkload[](count);
+        for (uint256 i = 0; i < count; i++) {
+            settledReporters[i] = tmpSettledReporters[i];
         }
 
         lastSettlementTime = block.timestamp;

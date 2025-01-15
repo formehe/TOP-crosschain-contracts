@@ -23,35 +23,29 @@ abstract contract NodesRegistry is Initializable {
         uint256 used;
     }
 
+    mapping(address => EnumerableSet.AddressSet) private identifierTree;
     mapping(address => Node) private nodes;
     mapping(string => address) private aliasNodes;
     mapping(address => mapping(string => uint256)) public gpuTypeOfNodes;//gpu index
     mapping(string => ComputeAvailable) public gpuSummary;
     EnumerableSet.AddressSet private identifiers;
-    mapping(address => address) private authorizations;
     address public allocator;
 
     event NodeRegistered(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
     event NodeActived(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
     event NodeDeregistered(address indexed identifier, uint256 time, string aliasIdentifier);
     event Authorized(address indexed owner, address indexed spender);
+    event NodeAttached(address indexed identifierOfProvider, address indexed identifierOfServer);
+    event NodeDetached(address indexed identifierOfProvider, address indexed identifierOfServer);
 
     function _nodesRegistry_initialize(
-        address[]   calldata _identifiers,
-        string[]    calldata _aliasIdentifiers,
-        address[]   calldata _wallets,
-        string[][]  calldata _gpuTypes,
-        uint256[][] calldata _gpuNums,
-        address     _allocator
+        NodeInfo[] calldata _nodesInfos,
+        address     _allocator,
+        address     _token
     ) internal onlyInitializing {
-        require((_identifiers.length == _wallets.length)
-            && (_identifiers.length == _gpuTypes.length)
-            && (_identifiers.length == _gpuNums.length)
-            && (_identifiers.length == _aliasIdentifiers.length), "Invalid initialize parameters");
-        
-        for (uint256 i = 0; i < _identifiers.length; i++) {
-            _registerNode(_wallets[i], _identifiers[i], _aliasIdentifiers[i], _gpuTypes[i], _gpuNums[i]);
-            _active(_identifiers[i]);
+        for (uint256 i = 0; i < _nodesInfos.length; i++) {
+            _registerNode(_nodesInfos[i].wallet, _nodesInfos[i].identifier, _nodesInfos[i].aliasIdentifier, _nodesInfos[i].gpuTypes, _nodesInfos[i].gpuNums);
+            _active(_nodesInfos[i].identifier);
         }
 
         require(_allocator != address(0), "Invalid allocator");
@@ -71,54 +65,28 @@ abstract contract NodesRegistry is Initializable {
     function deregisterNode(
     ) public {
         _deregisterNode(msg.sender);
-        _cancel(msg.sender);
     }
 
-    function deregisterNode(
-        address authorizer
-    ) public {
-        require(_check(authorizer, msg.sender), "Not authorized");
-        _cancel(authorizer);
-        _deregisterNode(authorizer);
+    function attach(address server) external{
+        Node storage node = nodes[msg.sender];
+        require(node.identifier != address(0), "Identifier must be exist");
+        EnumerableSet.AddressSet storage children = identifierTree[msg.sender];
+        bool ok = children.add(server);
+        require(ok, "child is exist");
+        emit NodeAttached(msg.sender, server);
     }
 
-    // approve
-    function approve(
-        address authorizedPerson
-    ) public returns (bool) {
-        _approve(msg.sender, authorizedPerson);
-        return true;
+    function detach(address server) external{
+        Node storage node = nodes[msg.sender];
+        require(node.identifier != address(0), "Identifier must be exist");
+        EnumerableSet.AddressSet storage children = identifierTree[msg.sender];
+        bool ok = children.remove(server);
+        require(ok, "child is not exist");
+        emit NodeDetached(msg.sender, server);
     }
 
-    function _approve(
-        address owner,
-        address authorizedPerson
-    ) internal {
-        require(owner != address(0), "Invalid owner");
-        require(authorizedPerson != address(0), "Invalid authorized person");
-        Node storage node = nodes[owner];
-        require(node.active, "None such node");
-        authorizations[owner] = authorizedPerson;
-        emit Authorized(owner, authorizedPerson);
-    }
-
-    function _cancel(
-        address owner
-    ) internal {
-        require(owner != address(0), "Invalid owner");
-        authorizations[owner] = address(0);
-        emit Authorized(owner, address(0));
-    }
-
-    function _check(
-        address owner,
-        address authorizedPerson
-    ) internal view returns (bool){
-        if (authorizations[owner] == authorizedPerson) {
-            return true;
-        }
-
-        return false;
+    function getAttach(address provider) external view returns(address[] memory){
+        return identifierTree[provider].values();
     }
 
     function at(
@@ -235,6 +203,7 @@ abstract contract NodesRegistry is Initializable {
         require(identifier != address(0), "Invalid identifier");
         Node storage node = nodes[identifier];
         require(node.identifier != address(0), "Identifier not exist");
+        require(identifierTree[identifier].length() == 0, "Identifier has children");
         string memory aliasIdentifier = node.aliasIdentifier;
         for (uint256 i = 0; i < node.gpus.length; i++) {
             ComputeAvailable storage available = node.gpus[i];

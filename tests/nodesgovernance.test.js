@@ -12,18 +12,60 @@ describe("NodesGovernance Contract", function () {
 
     beforeEach(async function () {
         [owner, verifier, addr1, addr2, addr3, addr4, addr5, addr6, addr7] = await ethers.getSigners();
-        
-        let IDENTIFIERS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
-        let WALLETS = [addr1.address, addr2.address, addr3.address, addr4.address, addr5.address, addr6.address];
-        let ALIAS_IDENTIFIERS = ["11111111111111111", "21111111111111111", "31111111111111111", "41111111111111111","51111111111111111","61111111111111111"]
-        const gpuTypes = [["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"], ["A100", "V100"]];
-        const gpuNums = [[2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]];
+        let nodeInfos = [
+            {
+                identifier: addr1.address,
+                aliasIdentifier: "11111111111111111",
+                wallet: addr1.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            },
+            {
+                identifier: addr2.address,
+                aliasIdentifier: "21111111111111111",
+                wallet: addr2.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            },
+            {
+                identifier: addr3.address,
+                aliasIdentifier: "31111111111111111",
+                wallet: addr3.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            },
+            {
+                identifier: addr4.address,
+                aliasIdentifier: "41111111111111111",
+                wallet: addr4.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            },
+            {
+                identifier: addr5.address,
+                aliasIdentifier: "51111111111111111",
+                wallet: addr5.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            },
+            {
+                identifier: addr6.address,
+                aliasIdentifier: "61111111111111111",
+                wallet: addr6.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            }
+        ]
 
         // 部署合约
         const NodesGovernanceFactory = await ethers.getContractFactory("NodesGovernance");
         nodesGovernance = await NodesGovernanceFactory.deploy();
         await nodesGovernance.deployed();
-        await nodesGovernance.nodesGovernance_initialize(IDENTIFIERS, ALIAS_IDENTIFIERS, WALLETS, gpuTypes, gpuNums, verifier.address, ROUND_DURATION_TIME)
+
+        const ERC20sample = await ethers.getContractFactory("ERC20TokenSample");
+        const erc20 = await ERC20sample.deploy();
+        await erc20.deployed();
+        await nodesGovernance.nodesGovernance_initialize(nodeInfos, verifier.address, ROUND_DURATION_TIME, erc20.address)
     });
 
     it("should start a new validation round", async function () {

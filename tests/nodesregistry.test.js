@@ -12,23 +12,32 @@ describe("NodesRegistry", function () {
     beforeEach(async function () {
         [owner, addr1, addr2, addr3, addr4, addr5] = await ethers.getSigners();
 
-        const identifiers = [addr1.address, addr2.address];
-        const alias_identifiers = ["1111111111111111", "2111111111111111"]
-        const wallets = [addr1.address, addr2.address];
-
-        const gpuTypes = [["A100", "V100"], ["A100", "V100"]];
-        const gpuNums = [[2, 3], [2, 3]];
-        const gpuNums1 = [[2, 3]];
-        const gpuNums2 = [[2], [2]];
+        let nodeInfos =[
+            {
+                identifier: addr1.address,
+                aliasIdentifier: "1111111111111111",
+                wallet: addr1.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            },
+            {
+                identifier: addr2.address,
+                aliasIdentifier: "2111111111111111",
+                wallet: addr2.address,
+                gpuTypes: ["A100", "V100"],
+                gpuNums: [2, 3]
+            }
+        ]
 
         NodesRegistry = await ethers.getContractFactory("NodesRegistryImpl");
         nodesRegistry = await NodesRegistry.deploy();
         await nodesRegistry.deployed();
-        await expect(nodesRegistry.nodesRegistryImpl_initialize(identifiers, alias_identifiers, wallets, gpuTypes, gpuNums1, addr5.address))
-        .to.be.revertedWith("Invalid initialize parameters")
-        await expect(nodesRegistry.nodesRegistryImpl_initialize(identifiers, alias_identifiers, wallets, gpuTypes, gpuNums2, addr5.address))
-        .to.be.revertedWith("Invalid GPU data")
-        await nodesRegistry.nodesRegistryImpl_initialize(identifiers, alias_identifiers, wallets, gpuTypes, gpuNums, addr5.address)
+
+        const ERC20sample = await ethers.getContractFactory("ERC20TokenSample");
+        const erc20 = await ERC20sample.deploy();
+        await erc20.deployed();
+
+        await nodesRegistry.nodesRegistryImpl_initialize(nodeInfos, addr5.address, erc20.address)
     });
 
     describe("owner", function () {
@@ -108,22 +117,22 @@ describe("NodesRegistry", function () {
                 .to.be.revertedWith("Identifier not exist");
         });
 
-        it("Should authorize other user to deregister a node", async function () {
-            await nodesRegistry.connect(addr1).approve(addr4.address)
-            await nodesRegistry.connect(addr4)["deregisterNode(address)"](addr1.address);
-            await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr1.address))
-                .to.be.revertedWith("Not authorized");
-            await expect(nodesRegistry.connect(addr1)["deregisterNode()"]())
-                .to.be.revertedWith("Identifier not exist");
+        // it("Should authorize other user to deregister a node", async function () {
+        //     await nodesRegistry.connect(addr1).approve(addr4.address)
+        //     await nodesRegistry.connect(addr4)["deregisterNode(address)"](addr1.address);
+        //     await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr1.address))
+        //         .to.be.revertedWith("Not authorized");
+        //     await expect(nodesRegistry.connect(addr1)["deregisterNode()"]())
+        //         .to.be.revertedWith("Identifier not exist");
             
-            const gpuTypes = ["A100", "V100"];
-            const gpuNums = [2, 3];
-            await nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", gpuTypes, gpuNums);
-            await nodesRegistry.connect(addr3).approve(addr4.address)
-            await nodesRegistry.connect(addr3)["deregisterNode()"]()
-            await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address))
-                .to.be.revertedWith("Not authorized");
-        });
+        //     const gpuTypes = ["A100", "V100"];
+        //     const gpuNums = [2, 3];
+        //     await nodesRegistry.connect(addr3).registerNode(addr3.address, "3111111111111111", gpuTypes, gpuNums);
+        //     await nodesRegistry.connect(addr3).approve(addr4.address)
+        //     await nodesRegistry.connect(addr3)["deregisterNode()"]()
+        //     await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address))
+        //         .to.be.revertedWith("Not authorized");
+        // });
     });
 
     describe("alloc gpu", function () {
@@ -266,30 +275,30 @@ describe("NodesRegistry", function () {
         });
     });
 
-    describe("Node approve", function () {
-        it("Should node approve", async function () {
-            await expect(nodesRegistry.connect(addr1).approve(AddressZero))
-                .to.be.revertedWith("Invalid authorized person")
+    // describe("Node approve", function () {
+    //     it("Should node approve", async function () {
+    //         await expect(nodesRegistry.connect(addr1).approve(AddressZero))
+    //             .to.be.revertedWith("Invalid authorized person")
 
-            await expect(nodesRegistry.connect(addr3).approve(addr4.address))
-            .to.be.revertedWith("None such node")
+    //         await expect(nodesRegistry.connect(addr3).approve(addr4.address))
+    //         .to.be.revertedWith("None such node")
             
-            const identifier = addr3;
-            const wallet = addr3.address;
-            const gpuTypes = ["A100"];
-            const gpuNums = [10];
+    //         const identifier = addr3;
+    //         const wallet = addr3.address;
+    //         const gpuTypes = ["A100"];
+    //         const gpuNums = [10];
 
-            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
-            await nodesRegistry.connect(addr3).approve(addr4.address)
-            await nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address)
-            await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address))
-                .to.be.revertedWith("Not authorized")
+    //         await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
+    //         await nodesRegistry.connect(addr3).approve(addr4.address)
+    //         await nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address)
+    //         await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address))
+    //             .to.be.revertedWith("Not authorized")
 
-            await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
-            await nodesRegistry.connect(addr3).approve(addr4.address)
-            await nodesRegistry.connect(addr3)["deregisterNode()"]()
-            await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address))
-                .to.be.revertedWith("Not authorized")
-        });
-    });
+    //         await nodesRegistry.connect(identifier).registerNode(wallet, "3111111111111111", gpuTypes, gpuNums);
+    //         await nodesRegistry.connect(addr3).approve(addr4.address)
+    //         await nodesRegistry.connect(addr3)["deregisterNode()"]()
+    //         await expect(nodesRegistry.connect(addr4)["deregisterNode(address)"](addr3.address))
+    //             .to.be.revertedWith("Not authorized")
+    //     });
+    // });
 });

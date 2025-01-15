@@ -5,19 +5,11 @@ import "./NodesRegistry.sol";
 
 contract NodesRegistryImpl is NodesRegistry {
     function nodesRegistryImpl_initialize(
-        address[] calldata _identifiers,
-        string[]  calldata _aliasIdentifiers,
-        address[] calldata _wallets,
-        string[][]  calldata _gpuTypes,
-        uint256[][] calldata _gpuNums,
-        address _allocator
+        NodeInfo[] calldata _nodesInfos,
+        address _allocator,
+        address _token
     ) external initializer {
-        require((_identifiers.length == _wallets.length)
-            && (_identifiers.length == _gpuTypes.length)
-            && (_identifiers.length == _gpuNums.length)
-            && (_identifiers.length == _aliasIdentifiers.length), "Invalid initialize parameters");
-            
-        _nodesRegistry_initialize(_identifiers, _aliasIdentifiers, _wallets, _gpuTypes, _gpuNums, _allocator);
+        _nodesRegistry_initialize(_nodesInfos, _allocator, _token);
     }
 
     function _checkRegister(
