@@ -11,7 +11,6 @@ contract AssetManagement is Initializable, IStake {
     }
 
     IERC20 public token;
-    address public admin;
 
     mapping(address => bool) public whiteContracts;
     mapping(address => mapping(address => Stake)) internal stakes;

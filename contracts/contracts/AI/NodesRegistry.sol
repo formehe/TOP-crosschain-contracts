@@ -33,8 +33,8 @@ abstract contract NodesRegistry is Initializable {
     address public allocator;
     IStake  public stakeToken;
 
-    event NodeRegistered(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
-    event NodeActived(address indexed wallet, address identifier, uint256 time, string aliasIdentifier);
+    event NodeRegistered(address indexed wallet, address identifier, uint256 time, string aliasIdentifier, string[] gpuTypes, uint256[] gpuNums);
+    event NodeActived(address indexed wallet, address identifier, uint256 time, string aliasIdentifier, string[] gpuTypes, uint256[] gpuNums);
     event NodeDeregistered(address indexed identifier, uint256 time, string aliasIdentifier);
     event Authorized(address indexed owner, address indexed spender);
     event NodeAttached(address indexed identifierOfProvider, address indexed identifierOfServer);
@@ -260,7 +260,7 @@ abstract contract NodesRegistry is Initializable {
         identifiers.add(identifier);
         aliasNodes[aliasIdentifier] = identifier;
 
-        emit NodeRegistered(wallet, identifier, block.timestamp, aliasIdentifier);
+        emit NodeRegistered(wallet, identifier, block.timestamp, aliasIdentifier, gpuTypes, gpuNums);
     }
 
     function _active(
@@ -270,7 +270,13 @@ abstract contract NodesRegistry is Initializable {
         require(node.identifier != address(0), "Identifier not exist");
         if (!node.active) {
             node.active = true;
-            emit NodeActived(node.wallet, node.identifier, block.timestamp, node.aliasIdentifier);
+            string[] memory gpuTypes = new string[](node.gpus.length);
+            uint256[] memory gpuNums = new uint256[](node.gpus.length);
+            for (uint256 i = 0; i < node.gpus.length; i++) {
+                gpuTypes[i] = node.gpus[i].gpuType;
+                gpuNums[i] = node.gpus[i].totalNum;
+            }
+            emit NodeActived(node.wallet, node.identifier, block.timestamp, node.aliasIdentifier, gpuTypes, gpuNums);
         }
     }
 
